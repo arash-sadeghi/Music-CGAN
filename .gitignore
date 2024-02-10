@@ -1,0 +1,8 @@
+.env/
+data/
+building a gan from scratch with pytorch theory + implementation.mp4
+__pycache__/
+lightning_logs/
+commitText.txt
+runs/
+.DS_Store
