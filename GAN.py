@@ -118,10 +118,11 @@ class GAN:
 
 
                 #! test
-                # from Conditioner import Conditioner
-                # c = Conditioner()
-                # res = c(real_samples[0][:,0,:,:].unsqueeze(1)) #! add one dimention as a chanel after batch dimention
-                self.generator(CONST.torch.randn(1, CONST.latent_dim*2))
+                from Conditioner import Conditioner
+                c = Conditioner()
+                res = c(real_samples[0][:,0,:,:].unsqueeze(1)) #! add one dimention as a chanel after batch dimention
+                
+                # self.generator(CONST.torch.randn(1, CONST.latent_dim*2))
                 #! test
 
                 # Train the neural networks

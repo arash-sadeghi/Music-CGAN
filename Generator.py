@@ -5,8 +5,8 @@ from CONST_VARS import CONST
 class GeneraterBlock(nn.Module):
     def __init__(self, in_dim, out_dim, kernel, stride ,output_padding = 0):
         super().__init__()
-        self.transconv = nn.ConvTranspose2d(in_dim, out_dim, kernel, stride ,output_padding = output_padding)
-        self.batchnorm = nn.BatchNorm2d(out_dim)
+        self.transconv = nn.ConvTranspose3d(in_dim, out_dim, kernel, stride ,output_padding = output_padding)
+        self.batchnorm = nn.BatchNorm3d(out_dim)
 
     def forward(self, x):
         x = self.transconv(x)
@@ -16,15 +16,17 @@ class GeneraterBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self):
         super().__init__() #! layer norms are adjusted as such to generate an ouput of lenght 64x72
-        self.transconv0 = GeneraterBlock(CONST.latent_dim*2, 128, 3,2, output_padding=(0,0))
-        self.transconv1 = GeneraterBlock(128, 64,               3,2,output_padding=(0,1))
-        self.transconv2 = GeneraterBlock(64, 32,                3,2,output_padding=(0,0))
-        self.transconv3 = GeneraterBlock(32, 16,                3,2,output_padding=(0,0))
-        self.transconv4 = GeneraterBlock(16, 1,                 3,2,output_padding=(1,1))
+        self.transconv0 = GeneraterBlock(CONST.latent_dim*2, 256, (4, 1, 1), (4, 1, 1))
+        self.transconv1 = GeneraterBlock(256, 128, (1, 4, 1), (1, 4, 1))
+        self.transconv2 = GeneraterBlock(128, 64, (1, 1, 4), (1, 1, 4))
+        self.transconv3 = GeneraterBlock(64, 32, (1, 1, 3), (1, 1, 1))
+        self.transconv4 = GeneraterBlock(32, 16, (1, 4, 1), (1, 4, 1))
+        self.transconv5 = GeneraterBlock(16, 1, (1, 1, 12), (1, 1, 12))
+
 
     def forward(self, x): #! torch.Size([1, 128])
         # layer = 0
-        x = x.view(-1, CONST.latent_dim*2, 1, 1) #! torch.Size([1, 128, 1, 1])
+        x = x.view(-1, CONST.latent_dim*2, 1, 1, 1) #! torch.Size([1, 128, 1, 1])
         # print(f"layer {layer} size {x.shape}");layer+=1        
 
         x = self.transconv0(x) #! torch.Size([1, 128, 4, 4]) #! torch.Size([1, 128, 3, 3])
@@ -42,6 +44,9 @@ class Generator(nn.Module):
         x = self.transconv4(x) #! torch.Size([1, 1, 94, 94]) #! torch.Size([1, 1, 63, 63])
         # print(f"layer {layer} size {x.shape}");layer+=1        
 
-        x = x.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches) 
+        x = self.transconv5(x) #! torch.Size([1, 1, 94, 94]) #! torch.Size([1, 1, 63, 63])
+        # print(f"layer {layer} size {x.shape}");layer+=1        
 
+
+        x = x.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
         return x
