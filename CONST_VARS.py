@@ -9,7 +9,7 @@ class CONST:
     random_seed = 42 #TODO problem here is CONST file will be executed at the beggining of each iteration so torch will be randomized multiple times with the same seed
     torch.manual_seed(random_seed)
     PATH_DATASETS = './data'
-    BATCH_SIZE=1 # 16
+    BATCH_SIZE=16
     AVAIL_GPUS = min(1, torch.cuda.device_count())
     NUM_WORKERS=int(os.cpu_count() / 2) #! number of threats allowed
     print("[+] AVAIL_GPUS: ",AVAIL_GPUS)
@@ -24,16 +24,18 @@ class CONST:
     beat_resolution = 4  # temporal resolution of a beat (in timestep)
     measure_resolution = 4 * beat_resolution
     # Data
-    n_tracks = 5  # number of tracks
+    n_tracks = 2 # 5  # number of tracks
     n_pitches = 72  # number of pitches
     lowest_pitch = 24  # MIDI note number of the lowest pitch
     n_samples_per_song = 1  # number of samples to extract from each song in the datset
     n_measures = 4  # number of measures per sample
     programs = [0, 0, 25, 33, 48]  # program number for each track
     is_drums = [True, False, False, False, False]  # drum indicator for each track
+    os_bass = [False, False, False, True, False]
     track_names = ['Drums', 'Piano', 'Guitar', 'Bass', 'Strings']  # name of each track
     tempo = 100
     latent_dim = 128
+    label_dim = 10000 #TODO number of possible conditions. I am not sure what is the write answer for this. for now I set to a large number. Considering condition is a 64*72 binary matrix, the total possible number of conditions are 2**(64*72) which has 1388 digits. if we take one measure for embedding, we will have 2**(64/4*72) which is a 347 digit length.
     n_steps = 20000
     # Sampling
     sample_interval = 1000  #! in what step interval during training we should make an example output.

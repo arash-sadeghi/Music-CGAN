@@ -35,18 +35,18 @@ class PianoRollDataModule(pl.LightningDataModule):
         id_list = get_pianoroll_id_list() #TODO bring implementation
         data = pianoroll2numpy(id_list)
         
-        draw_example_pianoroll(data)
-        
-        data = CONST.torch.as_tensor(data, dtype=CONST.torch.float32)
-        dataset = CONST.torch.utils.data.TensorDataset(data) #! torch.Size([8, 5, 64, 72])
+        # draw_example_pianoroll(data)
+
+        drum_and_bass = data[:,[0,3],:,:]
+        drum_and_bass = np.repeat(drum_and_bass,100,axis=0) #! DEBUG repeating samples to imitate batch
+
+        drum_and_bass_tensor = CONST.torch.as_tensor(drum_and_bass, dtype=CONST.torch.float32)
+        dataset = CONST.torch.utils.data.TensorDataset(drum_and_bass_tensor) #! torch.Size([8, 5, 64, 72])
         # self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, drop_last=True, shuffle=True)
         #! DEBUG: no shuffle:
         self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, shuffle=False)
         
         print("Number of Batches:", len(self.data_loader))
-
-
-        pass
     
     def setup(self, stage=None): #! 2 automatically called upon calling trainer.fit(model , dm) in main , after execution of prepare_data. stage automatiically passed
         # # Assign train/val datasets for use in dataloaders

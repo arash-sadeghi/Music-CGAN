@@ -115,9 +115,9 @@ def pianoroll2numpy(id_list):
         
         #! DEBUG overfit
         # for idx in np.random.choice(candidate, target_n_samples, False): #! randomly choose a measure
-        start = 0
+        start =  5* CONST.n_measures * CONST.measure_resolution # 0 #! shifting sample window where we have drum
         print(f"[+] target_n_samples {target_n_samples}")
-        for idx in range(target_n_samples): #! debug purpose. !!! loop modified to eliminate overlap
+        for _ in range(target_n_samples): #! debug purpose. !!! loop modified to eliminate overlap
             end = start + CONST.n_measures * CONST.measure_resolution  # n_measures number of measures per sample
             # Skip the samples where some track(s) has too few notes
             if (pianoroll.sum(axis=(1, 2)) < 10).any():

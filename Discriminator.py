@@ -38,13 +38,9 @@ class DiscriminatorBlock(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv0 = nn.ModuleList([
-            DiscriminatorBlock(1, 16, (1, 1, 12), (1, 1, 12)) for _ in range(CONST.n_tracks)
-        ])
-        self.conv1 = nn.ModuleList([
-            DiscriminatorBlock(16, 16, (1, 4, 1), (1, 4, 1)) for _ in range(CONST.n_tracks)
-        ])
-        self.conv2 = DiscriminatorBlock(16 * 5, 64, (1, 1, 3), (1, 1, 1))
+        self.conv0 = DiscriminatorBlock(2, 16, (1, 1, 12), (1, 1, 12)) 
+        self.conv1 = DiscriminatorBlock(16, 16, (1, 4, 1), (1, 4, 1)) 
+        self.conv2 = DiscriminatorBlock(16, 64, (1, 1, 3), (1, 1, 1))
         self.conv3 = DiscriminatorBlock(64, 64, (1, 1, 4), (1, 1, 4))
         self.conv4 = DiscriminatorBlock(64, 128, (1, 4, 1), (1, 4, 1))
         self.conv5 = DiscriminatorBlock(128, 128, (2, 1, 1), (1, 1, 1))
@@ -52,9 +48,9 @@ class Discriminator(nn.Module):
         self.dense = nn.Linear(256, 1)
 
     def forward(self, x):
-        x = x.view(-1, CONST.n_tracks, CONST.n_measures, CONST.measure_resolution, CONST.n_pitches)
-        x = [conv(x[:, [i]]) for i, conv in enumerate(self.conv0)]
-        x = CONST.torch.cat([conv(x_) for x_, conv in zip(x, self.conv1)], 1)
+        x = x.view(-1, 1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
+        x = self.conv0(x)
+        x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
@@ -63,24 +59,3 @@ class Discriminator(nn.Module):
         x = x.view(-1, 256)
         x = self.dense(x)
         return x
-
-# Detective: fake or no fake -> 1 output [0, 1]
-class DiscriminatorMNIST(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # Simple CNN
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 1)
-
-    def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        # Flatten the tensor so it can be fed into the FC layers
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return CONST.torch.sigmoid(x)
