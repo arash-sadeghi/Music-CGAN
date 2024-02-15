@@ -38,7 +38,7 @@ class CONST:
     label_dim = 10000 #TODO number of possible conditions. I am not sure what is the write answer for this. for now I set to a large number. Considering condition is a 64*72 binary matrix, the total possible number of conditions are 2**(64*72) which has 1388 digits. if we take one measure for embedding, we will have 2**(64/4*72) which is a 347 digit length.
     n_steps = 20000
     # Sampling
-    sample_interval = 1000  #! in what step interval during training we should make an example output.
+    sample_interval = 20  #! in what step interval during training we should make an example output.
     n_samples = 1 #! number of samples to be generated in the output when saving results from gan to file.  not and architecture parameter. each sample includes some measure and each measure includes some beats and notes.
     tempo_array = np.full((4 * 4 * measure_resolution, 1), tempo)
 

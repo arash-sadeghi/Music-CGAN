@@ -23,3 +23,5 @@ solution4: count distinctive bass measures and use their index. The problem with
     - my only concern for now is that generator and conditioner does not have 3d understanding like discriminator
 - for now we are training to learn drum track at time t for bass t. but we can in future say learn drum track time t+1 for bass t so that drummer catches up with bassist.
 - in gan class couldn't fully understand how lossed for discrimator are calculated. Its not same us original GAN.
+- conditioner was not getting updated. 
+    - solution: for conditioner used leaky relu instead of relu. inpiration [I think, that model with random weights predicts a lot of negative values. But ReLU cut them out. So, MSELoss can’t do a lot with them. Weights aren’t updated.But when I removed ReLU activation, it was just fine.](https://discuss.pytorch.org/t/model-weights-not-being-updated/1842/21)

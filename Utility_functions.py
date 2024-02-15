@@ -140,5 +140,32 @@ def get_pianoroll_id_list():
                 id_list.extend([line.rstrip() for line in f])
     return list(set(id_list))
 
+def display_pianoRoll(samples,step=""):
+    # samples = samples.transpose(1, 0, 2, 3).reshape(CONST.n_tracks, -1, CONST.n_pitches)
+    tracks = []
 
+    for idx, (program, is_drum, track_name) in enumerate(zip([0,33], [True,False], ['Drum','Bass'])):
+        # pianoroll = np.pad(np.concatenate(data[:4], 1)[idx], ((0, 0), (lowest_pitch, 128 - lowest_pitch - n_pitches)))
+        pianoroll = np.pad(samples[idx] > 0.5,((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
+        tracks.append(Track(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
+
+    m = Multitrack(tracks=tracks,tempo=CONST.tempo_array,resolution=CONST.beat_resolution)
+    #! save music to npz -> midi
+    m.save(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
+    tmp = pypianoroll.load(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
+    tmp.write(os.path.join(CONST.training_output_path_root,str(step)+'.midi'))
+
+    axs = m.plot()
+    plt.gcf().set_size_inches((16, 8))
+    for ax in axs:
+        for x in range(
+            CONST.measure_resolution,
+            CONST.n_samples * CONST.measure_resolution * CONST.n_measures,
+            CONST.measure_resolution
+        ):
+            if x % (CONST.measure_resolution * 4) == 0:
+                ax.axvline(x - 0.5, color='k')
+            else:
+                ax.axvline(x - 0.5, color='k', linestyle='-', linewidth=1)
+    plt.savefig(os.path.join(CONST.training_output_path_root,str(step)+'.png'))
 
