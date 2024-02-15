@@ -156,5 +156,24 @@ def display_pianoRoll(samples,step=""):
                 ax.axvline(x - 0.5, color='k')
             else:
                 ax.axvline(x - 0.5, color='k', linestyle='-', linewidth=1)
-    plt.savefig(os.path.join(CONST.training_output_path_root,str(step)+'.png'))
+    image_path = os.path.join(CONST.training_output_path_root,str(step)+'.png')
+    plt.savefig(image_path)
+    return image_path
 
+def resize_to_batch_compatible(data):
+    # Number of instances to repeat
+    num_instances_to_repeat =CONST.BATCH_SIZE - data.shape[0]%CONST.BATCH_SIZE
+
+    # Select random instances to repeat
+    indices_to_repeat = np.random.choice(data.shape[0], num_instances_to_repeat, replace=True)
+
+    # Repeat selected instances
+    repeated_instances = data[indices_to_repeat]
+
+    # Concatenate original array and repeated instances along the first axis
+    data = np.concatenate((data, repeated_instances), axis=0)
+
+    # Shuffle the array along the first axis to ensure randomness
+    np.random.shuffle(data)
+
+    return data
