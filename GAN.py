@@ -101,17 +101,10 @@ class GAN:
         self.train_prep()
 
         step = 0
-        progress_bar = tqdm(total=CONST.n_steps, initial=step, ncols=80, mininterval=1)
+        progress_bar = tqdm(total=CONST.n_steps, initial=step, ncols=100, mininterval=1)
 
-        for step in range(CONST.n_steps):
+        while step < CONST.n_steps:
             for real_samples in self.data_loader: #! [batch_size , instruments, time, pitch]
-
-                #! test
-                # from Conditioner import Conditioner
-                # c = Conditioner()
-                # res = c(real_samples[0][:,0,:,:].unsqueeze(1)) #! add one dimention as a chanel after batch dimention
-                # self.generator(CONST.torch.randn(1, CONST.latent_dim*2))
-                #! test
 
                 # Train the neural networks
                 self.generator.train() #! put generator in train mode. why dont we do this to discriminator?
@@ -125,10 +118,14 @@ class GAN:
                 progress_bar.set_description_str(
                     "(d_loss={: 8.6f}, g_loss={: 8.6f})".format(d_loss, g_loss))
 
-            if step % CONST.sample_interval == 0:
-                self.generator_generate_sample_output(real_samples,step)
 
-            progress_bar.update(1)
+                if step % CONST.sample_interval == 0:
+                    self.generator_generate_sample_output(real_samples,step)
+                    CONST.torch.save(self.generator.state_dict(), CONST.training_output_path_root+f'generator_{step}.pth')
+                    CONST.torch.save(self.discriminator.state_dict(), CONST.training_output_path_root+f'discriminator_{step}.pth')
+
+                progress_bar.update(1)
+                step +=1
   
     def generator_generate_sample_output(self,real_samples,step):
         # Create an empty dictionary to sotre history samples
@@ -137,15 +134,20 @@ class GAN:
         # Get generated samples
         self.generator.eval()
 
-        samples = self.generator(self.sample_latent_eval,real_samples[0][0,1,:,:].unsqueeze(0))
-        history_samples[step] = CONST.torch.cat((samples[0].cpu().detach(),real_samples[0][0,1,:,:].unsqueeze(0))).numpy()
+        samples = self.generator(self.sample_latent_eval,real_samples[0][0:CONST.n_samples,1,:,:].unsqueeze(0))
+
+        #* reshaping data inorder to be saved as image
+        temp = CONST.torch.cat((samples.cpu().detach(),real_samples[0][0:CONST.n_samples,1,:,:].unsqueeze(1)),axis = 1).numpy()
+        temp = temp.transpose(1,0,2,3)
+        temp = temp.reshape(temp.shape[0] , temp.shape[1] * temp.shape[2] , temp.shape[3])
+        history_samples[step] = temp
 
 
         # Display loss curves
         clear_output(True)
 
-        CONST.writer.add_scalar("g_loss" , self.running_g_loss , step)
-        CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
+        # CONST.writer.add_scalar("g_loss" , self.running_g_loss , step)
+        # CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
 
         display_pianoRoll(history_samples[step],step)
         

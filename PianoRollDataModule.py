@@ -5,18 +5,18 @@ import pytorch_lightning as pl
 from CONST_VARS import CONST
 from Utility_functions import  draw_example_pianoroll,get_pianoroll_id_list,pianoroll2numpy
 import numpy as np
-
+import os
 class PianoRollDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        data_dir: str = CONST.PATH_DATASETS,
+        data_dir: str = CONST.dataset_root,
         batch_size: int = CONST.BATCH_SIZE,
-        num_workers: int = CONST.NUM_WORKERS,
+        # num_workers: int = CONST.NUM_WORKERS,
     ):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.num_workers = num_workers
+        # self.num_workers = num_workers
 
         self.transform = transforms.Compose( #? what is this?
             [
@@ -33,18 +33,22 @@ class PianoRollDataModule(pl.LightningDataModule):
     def prepare_data(self): #! 1 automatically called upon calling trainer.fit(model , dm) in main. this function is for downloading dataset        # download
         
         id_list = get_pianoroll_id_list() #TODO bring implementation
-        data = pianoroll2numpy(id_list)
         
+        if os.path.exists(os.path.join(CONST.dataset_root,"data.npy")):
+            print("[+] loading data from existing npy file")
+            self.load_data_np()
+        else:
+            print("[+] creating numpy dataset")
+            self.data_np = pianoroll2numpy(id_list)
+            self.save_data_np()
+
         # draw_example_pianoroll(data)
 
-        drum_and_bass = data[:,[0,3],:,:]
-        drum_and_bass = np.repeat(drum_and_bass,CONST.BATCH_SIZE*10,axis=0) #! DEBUG repeating samples to imitate batch
+        drum_and_bass = self.data_np[:,[0,3],:,:]
 
         drum_and_bass_tensor = CONST.torch.as_tensor(drum_and_bass, dtype=CONST.torch.float32)
         dataset = CONST.torch.utils.data.TensorDataset(drum_and_bass_tensor) #! torch.Size([8, 5, 64, 72])
-        # self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, drop_last=True, shuffle=True)
-        #! DEBUG: no shuffle:
-        self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, shuffle=False)
+        self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
         
         print("Number of Batches:", len(self.data_loader))
     
@@ -60,12 +64,12 @@ class PianoRollDataModule(pl.LightningDataModule):
         pass
 
     def train_dataloader(self):
-        #! DEBUG --------------------------------------------------------------------------------------------------
-        print("[!!!!!] Debug overfitting ")
         return self.data_loader
+    
+    def save_data_np(self):
+        np.save(os.path.join(CONST.dataset_root,"data.npy"),self.data_np)
 
-    # def val_dataloader(self):
-    #     return DataLoader(self.mnist_val, batch_size=self.batch_size, num_workers=self.num_workers)
-
-    # def test_dataloader(self):
-    #     return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers)
+    def load_data_np(self):
+        self.data_np = np.load(os.path.join(CONST.dataset_root,"data.npy"))
+    
+    #TODO write validator data part
