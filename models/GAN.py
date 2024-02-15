@@ -4,8 +4,8 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 import torchvision
 
-from models.Generator import Generator
-from models.Discriminator import Discriminator
+from Generator import Generator
+from Discriminator import Discriminator
 
 from CONST_VARS import CONST
 import os
@@ -14,7 +14,7 @@ from IPython.display import clear_output
 from pypianoroll import Multitrack, Track
 import pypianoroll
 import numpy as np
-from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll
+from Utility_functions import compute_gradient_penalty, display_pianoRoll
 class GAN:
     def __init__(self,data_loader) -> None:
         self.discriminator = Discriminator() 
