@@ -132,7 +132,6 @@ def pianoroll2numpy(id_list):
     return data #TODO data is mutable 
 
 def get_pianoroll_id_list():
-    print("\n[+] preparing data\n")
     id_list = []
     for path in os.listdir(CONST.amg_path):
         filepath = os.path.join(CONST.amg_path, path)
@@ -140,3 +139,6 @@ def get_pianoroll_id_list():
             with open(filepath) as f:
                 id_list.extend([line.rstrip() for line in f])
     return list(set(id_list))
+
+
+

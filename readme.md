@@ -22,3 +22,4 @@ solution4: count distinctive bass measures and use their index. The problem with
     - for now I only let discruminator to have ed conv and have understanding of measure.
     - my only concern for now is that generator and conditioner does not have 3d understanding like discriminator
 - for now we are training to learn drum track at time t for bass t. but we can in future say learn drum track time t+1 for bass t so that drummer catches up with bassist.
+- in gan class couldn't fully understand how lossed for discrimator are calculated. Its not same us original GAN.

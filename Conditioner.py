@@ -27,7 +27,8 @@ class Conditioner(nn.Module):
 
 
     def forward(self, x): 
-        x = x.view(CONST.BATCH_SIZE ,1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches) 
+        x = x.view(-1,1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches) 
+        # x = x.view(CONST.BATCH_SIZE ,1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches) 
         x = self.conv0(x) 
         x = self.conv1(x)
         x = self.conv2(x)

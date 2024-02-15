@@ -38,7 +38,7 @@ class PianoRollDataModule(pl.LightningDataModule):
         # draw_example_pianoroll(data)
 
         drum_and_bass = data[:,[0,3],:,:]
-        drum_and_bass = np.repeat(drum_and_bass,100,axis=0) #! DEBUG repeating samples to imitate batch
+        drum_and_bass = np.repeat(drum_and_bass,CONST.BATCH_SIZE*10,axis=0) #! DEBUG repeating samples to imitate batch
 
         drum_and_bass_tensor = CONST.torch.as_tensor(drum_and_bass, dtype=CONST.torch.float32)
         dataset = CONST.torch.utils.data.TensorDataset(drum_and_bass_tensor) #! torch.Size([8, 5, 64, 72])

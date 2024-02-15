@@ -48,7 +48,7 @@ class Discriminator(nn.Module):
         self.dense = nn.Linear(256, 1)
 
     def forward(self, x):
-        x = x.view(-1, 1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
+        x = x.view(-1, 2,  CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
         x = self.conv0(x)
         x = self.conv1(x)
         x = self.conv2(x)
