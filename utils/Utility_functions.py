@@ -42,12 +42,7 @@ def is_folder_empty(folder_path):
 def convert_torch_dataset(subset):
     data_list = []
     for idx in range(len(subset)):
-        # item = subset[idx]
-
-        #! DEBUG
-        item = subset[0] #! for overfitting
-        
-        data_list.append(item[0])  # Assuming each item is a tuple, and the data is at index 0
+        data_list.append(subset[idx]) 
 
     numpy_array = np.array(data_list)
     plt.imshow(numpy_array[0][0])
@@ -97,12 +92,12 @@ def pianoroll2numpy(id_list):
     # Iterate over all the songs in the ID list
     for msd_id in tqdm(id_list):
         # Load the multitrack as a pypianoroll.Multitrack instance
-        song_dir = CONST.dataset_root / msd_id_to_dirs(msd_id)
-        multitrack = pypianoroll.load(song_dir / os.listdir(song_dir)[0])
+        song_dir = CONST.dataset_path + msd_id_to_dirs(msd_id)
+        multitrack = pypianoroll.load(os.path.join(song_dir , os.listdir(song_dir)[0]))
         # Binarize the pianorolls
         multitrack.binarize()
         # Downsample the pianorolls (shape: n_timesteps x n_pitches) #! changes the data
-        multitrack.set_resolution(CONST.beat_resolution)
+        multitrack.set_resolution(CONST.beat_resolution) 
         # Stack the pianoroll (shape: n_tracks x n_timesteps x n_pitches)
         pianoroll = (multitrack.stack() > 0)
         # Get the target pitch range only
@@ -111,20 +106,14 @@ def pianoroll2numpy(id_list):
         n_total_measures = multitrack.get_max_length() //CONST.measure_resolution
         candidate = n_total_measures - CONST.n_measures #? why? --> to avoid selecting a sample at the end of song which is not long enough
         target_n_samples = min(n_total_measures // CONST.n_measures, CONST.n_samples_per_song)
-        # Randomly select a number of phrases from the multitrack pianoroll #! till here pianoroll.shape is (5 tracks, 1826 measures or beats?, 72 limited pitches) in overfitting example
-        
-        #! DEBUG overfit
-        # for idx in np.random.choice(candidate, target_n_samples, False): #! randomly choose a measure
-        start = 0
-        print(f"[+] target_n_samples {target_n_samples}")
-        for idx in range(target_n_samples): #! debug purpose. !!! loop modified to eliminate overlap
-            end = start + CONST.n_measures * CONST.measure_resolution  # n_measures number of measures per sample
+        # Randomly select a number of phrases from the multitrack pianoroll 
+        for idx in np.random.choice(candidate, target_n_samples, False): #! randomly choose a measure
+            start = idx * CONST.measure_resolution
+            end = (idx + CONST.n_measures) * CONST.measure_resolution
             # Skip the samples where some track(s) has too few notes
             if (pianoroll.sum(axis=(1, 2)) < 10).any():
                 continue
             data.append(pianoroll[:, start:end])
-            print(start,end)
-            start = end
     # Stack all the collected pianoroll segments into one big array
     data = np.stack(data)
     print(f"Successfully collect {len(data)} samples from {len(id_list)} songs")
@@ -132,7 +121,6 @@ def pianoroll2numpy(id_list):
     return data #TODO data is mutable 
 
 def get_pianoroll_id_list():
-    print("\n[+] preparing data\n")
     id_list = []
     for path in os.listdir(CONST.amg_path):
         filepath = os.path.join(CONST.amg_path, path)
@@ -140,3 +128,52 @@ def get_pianoroll_id_list():
             with open(filepath) as f:
                 id_list.extend([line.rstrip() for line in f])
     return list(set(id_list))
+
+def display_pianoRoll(samples,step=""):
+    # samples = samples.transpose(1, 0, 2, 3).reshape(CONST.n_tracks, -1, CONST.n_pitches)
+    tracks = []
+
+    for idx, (program, is_drum, track_name) in enumerate(zip([0,33], [True,False], ['Drum','Bass'])):
+        # pianoroll = np.pad(np.concatenate(data[:4], 1)[idx], ((0, 0), (lowest_pitch, 128 - lowest_pitch - n_pitches)))
+        pianoroll = np.pad(samples[idx] > 0.5,((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
+        tracks.append(Track(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
+
+    m = Multitrack(tracks=tracks,tempo=CONST.tempo_array,resolution=CONST.beat_resolution)
+    #! save music to npz -> midi
+    m.save(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
+    tmp = pypianoroll.load(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
+    tmp.write(os.path.join(CONST.training_output_path_root,str(step)+'.midi'))
+
+    axs = m.plot()
+    plt.gcf().set_size_inches((16, 8))
+    for ax in axs:
+        for x in range(
+            CONST.measure_resolution,
+            CONST.n_samples * CONST.measure_resolution * CONST.n_measures,
+            CONST.measure_resolution
+        ):
+            if x % (CONST.measure_resolution * 4) == 0:
+                ax.axvline(x - 0.5, color='k')
+            else:
+                ax.axvline(x - 0.5, color='k', linestyle='-', linewidth=1)
+    image_path = os.path.join(CONST.training_output_path_root,str(step)+'.png')
+    plt.savefig(image_path)
+    return image_path
+
+def resize_to_batch_compatible(data):
+    # Number of instances to repeat
+    num_instances_to_repeat =CONST.BATCH_SIZE - data.shape[0]%CONST.BATCH_SIZE
+
+    # Select random instances to repeat
+    indices_to_repeat = np.random.choice(data.shape[0], num_instances_to_repeat, replace=True)
+
+    # Repeat selected instances
+    repeated_instances = data[indices_to_repeat]
+
+    # Concatenate original array and repeated instances along the first axis
+    data = np.concatenate((data, repeated_instances), axis=0)
+
+    # Shuffle the array along the first axis to ensure randomness
+    np.random.shuffle(data)
+
+    return data

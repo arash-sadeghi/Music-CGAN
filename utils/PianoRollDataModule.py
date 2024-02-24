@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import MNIST
 import pytorch_lightning as pl
 from CONST_VARS import CONST
-from utils.Utility_functions import  draw_example_pianoroll,get_pianoroll_id_list,pianoroll2numpy
+from utils.Utility_functions import  resize_to_batch_compatible,get_pianoroll_id_list,pianoroll2numpy
 import numpy as np
 import os
 class PianoRollDataModule(pl.LightningDataModule):
@@ -43,6 +43,9 @@ class PianoRollDataModule(pl.LightningDataModule):
             self.save_data_np()
 
         # draw_example_pianoroll(data)
+            
+        if self.data_np.shape[0]%CONST.BATCH_SIZE != 0:
+            self.data_np = resize_to_batch_compatible(self.data_np)
 
         drum_and_bass = self.data_np[:,[0,3],:,:]
 

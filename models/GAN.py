@@ -1,11 +1,20 @@
-from models.Generator import Generator
-from models.Discriminator import Discriminator
+import torch.nn as nn
+import torch.nn.functional as F
+import pytorch_lightning as pl
+import matplotlib.pyplot as plt
+import torchvision
+
+from Generator import Generator
+from Discriminator import Discriminator
+
 from CONST_VARS import CONST
+import os
 from tqdm import tqdm
 from IPython.display import clear_output
-from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll
-import wandb
-
+from pypianoroll import Multitrack, Track
+import pypianoroll
+import numpy as np
+from Utility_functions import compute_gradient_penalty, display_pianoRoll
 class GAN:
     def __init__(self,data_loader) -> None:
         self.discriminator = Discriminator() 
@@ -13,9 +22,6 @@ class GAN:
         self.data_loader = data_loader
         print(f"[+] is gpu availble {CONST.torch.cuda.is_available()}")
         self.running_d_loss, self.running_g_loss= 0.0, 0.0
-        wandb.init(project="Music-CGAN")
-        wandb.watch(self.generator)
-        wandb.watch(self.discriminator)
 
 
     def train_one_step(self , real_samples):
@@ -111,17 +117,12 @@ class GAN:
                 # Update losses to progress bar
                 progress_bar.set_description_str(
                     "(d_loss={: 8.6f}, g_loss={: 8.6f})".format(d_loss, g_loss))
-                
-                wandb.log({"running_g_loss": self.running_g_loss,"running_d_loss": self.running_d_loss},step=step)
+
 
                 if step % CONST.sample_interval == 0:
                     self.generator_generate_sample_output(real_samples,step)
                     CONST.torch.save(self.generator.state_dict(), CONST.training_output_path_root+f'generator_{step}.pth')
                     CONST.torch.save(self.discriminator.state_dict(), CONST.training_output_path_root+f'discriminator_{step}.pth')
-
-                    # wandb.log({"g_parameters": wandb.Histogram(self.generator.parameters())})
-                    # wandb.log({"d_parameters": wandb.Histogram(self.discriminator.parameters())})
-
 
                 progress_bar.update(1)
                 step +=1
@@ -148,8 +149,7 @@ class GAN:
         # CONST.writer.add_scalar("g_loss" , self.running_g_loss , step)
         # CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
 
-        image_path = display_pianoRoll(history_samples[step],step)
-        wandb.log({f"sample_piano_roll": wandb.Image(image_path)},step=step)
+        display_pianoRoll(history_samples[step],step)
         
 
     def smooth_loss(self, d_loss , g_loss):
