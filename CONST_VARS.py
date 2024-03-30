@@ -10,15 +10,16 @@ class CONST:
     torch.manual_seed(random_seed)
 
     dataset_root = './data/PianoRoll/dataset'
-    example_dataset_path = "data/PianoRoll/results/"
+    example_dataset_path = "data/PianoRoll/results/genre"
     dataset_path = dataset_root+"/lpd_5/lpd_5_cleansed/"
     amg_path = dataset_root+"/amg"
-    outputs_url = "data/PianoRoll/results"
-    training_output_path_root = "data/PianoRoll/results/training_output_path_root"
+    outputs_url = "data/PianoRoll/results/genre"
+    training_output_path_root = "data/PianoRoll/results/genre/training_output_path_root"
 
     BATCH_SIZE=64
     sample_interval = 200  #! in what step interval during training we should make an example output.
-    n_steps = 20000
+    # n_steps = 20000
+    n_steps = 10000
     AVAIL_GPUS = min(1, torch.cuda.device_count())
     print("[+] AVAIL_GPUS: ",AVAIL_GPUS)
     # NUM_WORKERS=int(os.cpu_count() / 2) #! number of threats allowed
@@ -49,4 +50,18 @@ class CONST:
         "Lengths of programs, is_drums and track_names must be the same."
     )
 
-    #* W&B
+    genre_code = {
+        'Folk' : 0 ,
+        'Country' : 1 ,
+        'Rap' : 2 ,
+        'Blues' : 3 ,
+        'RnB' : 4 ,
+        'New-Age' : 5 ,
+        'Vocal' : 6 ,
+        'Reggae' : 7 ,
+        'Pop_Rock' : 8 ,
+        'Electronic' : 9 ,
+        'International' : 10 ,
+        'Jazz'  : 11 ,
+        'Latin' : 12 ,
+    }

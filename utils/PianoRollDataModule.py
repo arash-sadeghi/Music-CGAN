@@ -1,18 +1,21 @@
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Dataset
 from torchvision.datasets import MNIST
 import pytorch_lightning as pl
 from CONST_VARS import CONST
 from utils.Utility_functions import  resize_to_batch_compatible,get_pianoroll_id_list,pianoroll2numpy
 import numpy as np
 import os
+import torch
 class PianoRollDataModule(pl.LightningDataModule):
+    DATA_SAVE_URL = os.path.join(CONST.dataset_root,"data_genred.npy")
+    GENRE_SAVE_URL = os.path.join(CONST.dataset_root,"genre.npy")
     def __init__(
         self,
         data_dir: str = CONST.dataset_root,
         batch_size: int = CONST.BATCH_SIZE,
         # num_workers: int = CONST.NUM_WORKERS,
-    ):
+        ):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -32,26 +35,25 @@ class PianoRollDataModule(pl.LightningDataModule):
 
     def prepare_data(self): #! 1 automatically called upon calling trainer.fit(model , dm) in main. this function is for downloading dataset        # download
         
-        id_list = get_pianoroll_id_list() #TODO bring implementation
+        id_list ,  genres = get_pianoroll_id_list() #TODO bring implementation
         
-        if os.path.exists(os.path.join(CONST.dataset_root,"data.npy")):
+        if os.path.exists(PianoRollDataModule.DATA_SAVE_URL):
             print("[+] loading data from existing npy file")
             self.load_data_np()
         else:
             print("[+] creating numpy dataset")
-            self.data_np = pianoroll2numpy(id_list)
+            self.data_np , self.genre_per_sample = pianoroll2numpy(id_list,genres)
             self.save_data_np()
 
         # draw_example_pianoroll(data)
+
+
             
         if self.data_np.shape[0]%CONST.BATCH_SIZE != 0:
-            self.data_np = resize_to_batch_compatible(self.data_np)
+            self.data_np , self.genre_per_sample= resize_to_batch_compatible(self.data_np , self.genre_per_sample)
 
-        drum_and_bass = self.data_np[:,[0,3],:,:]
-
-        drum_and_bass_tensor = CONST.torch.as_tensor(drum_and_bass, dtype=CONST.torch.float32)
-        dataset = CONST.torch.utils.data.TensorDataset(drum_and_bass_tensor) #! torch.Size([8, 5, 64, 72])
-        self.data_loader = CONST.torch.utils.data.DataLoader(dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
+        custom_dataset = CustomDataset(drum = self.data_np[:,0,:,:].astype(np.float32) , bass = self.data_np[:,3,:,:].astype(np.float32) , genre = self.genre_per_sample)
+        self.data_loader = CONST.torch.utils.data.DataLoader(custom_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
         
         print("Number of Batches:", len(self.data_loader))
     
@@ -70,9 +72,27 @@ class PianoRollDataModule(pl.LightningDataModule):
         return self.data_loader
     
     def save_data_np(self):
-        np.save(os.path.join(CONST.dataset_root,"data.npy"),self.data_np)
+        np.save(PianoRollDataModule.DATA_SAVE_URL , self.data_np)
+        np.save(PianoRollDataModule.GENRE_SAVE_URL , self.genre_per_sample)
 
     def load_data_np(self):
-        self.data_np = np.load(os.path.join(CONST.dataset_root,"data.npy"))
+        self.data_np = np.load(PianoRollDataModule.DATA_SAVE_URL)
+        self.genre_per_sample = np.load(PianoRollDataModule.GENRE_SAVE_URL)
     
     #TODO write validator data part
+        
+
+class CustomDataset(Dataset):
+    def __init__(self, drum , bass , genre):
+        self.bass = bass
+        self.drum = drum
+        self.genre = genre
+
+    def __len__(self):
+        return len(self.bass)  # Assuming all input_data have the same length
+
+    def __getitem__(self, idx):
+        bass = torch.from_numpy(self.bass[idx])  # Convert to PyTorch tensor
+        drum = torch.from_numpy(self.drum[idx])  # Convert to PyTorch tensor
+        genre = torch.from_numpy(np.array(self.genre[idx]))  # Convert to PyTorch tensor
+        return drum , bass , genre
