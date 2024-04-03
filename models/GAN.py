@@ -23,7 +23,7 @@ class GAN:
 
         # Transfer data to GPU
         if CONST.torch.cuda.is_available():
-            real_samples = real_samples.cuda()
+            real_samples = [_.cuda() for _ in real_samples]
             latent = latent.cuda()
 
         # === Train the discriminator ===
@@ -137,6 +137,11 @@ class GAN:
         self.bass_val = drum_and_bass[:CONST.n_samples,1,:,:].unsqueeze(1)
         self.drum_gt_val = drum_and_bass[:CONST.n_samples,0,:,:].unsqueeze(1)
 
+        if CONST.torch.cuda.is_available():
+            self.genre_val= self.genre_val.cuda()
+            self.bass_val = self.bass_val.cuda()
+            self.drum_gt_val = self.drum_gt_val.cuda()
+
 
     def generator_generate_sample_output(self,real_samples,step):
         # Create an empty dictionary to sotre history samples
@@ -148,7 +153,7 @@ class GAN:
         samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
 
         #* reshaping data inorder to be saved as image
-        temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val ,self.drum_gt_val  ),axis = 1).numpy()
+        temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val.cpu().detach() ,self.drum_gt_val.cpu().detach()  ),axis = 1).numpy()
         temp = temp.transpose(1,0,2,3)
         temp = temp.reshape(temp.shape[0] , temp.shape[1] * temp.shape[2] , temp.shape[3])
         history_samples[step] = temp

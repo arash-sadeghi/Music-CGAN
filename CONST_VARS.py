@@ -9,19 +9,19 @@ class CONST:
     random_seed = 42 #TODO problem here is CONST file will be executed at the beggining of each iteration so torch will be randomized multiple times with the same seed
     torch.manual_seed(random_seed)
 
-    dataset_root = './data/PianoRoll/dataset'
-    example_dataset_path = "data/PianoRoll/results/genre"
-    dataset_path = dataset_root+"/lpd_5/lpd_5_cleansed/"
-    amg_path = dataset_root+"/amg"
-    outputs_url = "data/PianoRoll/results/genre"
-    training_output_path_root = "data/PianoRoll/results/genre/training_output_path_root"
+    dataset_root = os.path.join('data','PianoRoll','dataset')
+    example_dataset_path = os.path.join('data','PianoRoll','results','genre')
+    dataset_path = os.path.join(dataset_root,'lpd_5','lpd_5_cleansed')
+    amg_path = os.path.join(dataset_root,"amg")
+    outputs_url = os.path.join('data','PianoRoll','results','genre')
+    training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root')
 
     BATCH_SIZE=64
-    sample_interval = 200  #! in what step interval during training we should make an example output.
+    sample_interval = 100  #! in what step interval during training we should make an example output.
     # n_steps = 20000
-    n_steps = 10000
+    n_steps = 20000
     AVAIL_GPUS = min(1, torch.cuda.device_count())
-    print("[+] AVAIL_GPUS: ",AVAIL_GPUS)
+    print("[+] AVAIL_GPUS: ", torch.cuda.device_count())
     # NUM_WORKERS=int(os.cpu_count() / 2) #! number of threats allowed
     #TODO assertion for constances of piano roll
 
