@@ -16,7 +16,7 @@ class CONST:
     outputs_url = os.path.join('data','PianoRoll','results','genre')
     training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root')
 
-    BATCH_SIZE=64
+    BATCH_SIZE=64*4
     sample_interval = 100  #! in what step interval during training we should make an example output.
     # n_steps = 20000
     n_steps = 20000

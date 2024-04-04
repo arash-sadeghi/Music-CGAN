@@ -3,7 +3,7 @@ from models.Discriminator import Discriminator
 from CONST_VARS import CONST
 from tqdm import tqdm
 from IPython.display import clear_output
-from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll
+from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll, print_ram_usage
 import wandb
 import os
 class GAN:
@@ -45,7 +45,7 @@ class GAN:
         fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
         prediction_fake_d = self.discriminator(fake_samples_conditioned.detach() , genre)
         ### Compute the loss function
-        d_loss_fake = CONST.torch.mean(prediction_fake_d)
+        d_loss_fake = CONST.torch.mean(prediction_fake_d) #* discriminator will try to make this zero, thus learning to give zero label to fake data
         ### Backpropagate the gradients
         d_loss_fake.backward()
 
@@ -65,13 +65,13 @@ class GAN:
         # Get discriminator outputs for the fake samples
         prediction_fake_g = self.discriminator(fake_samples_conditioned,genre)
         # Compute the loss function
-        g_loss = -CONST.torch.mean(prediction_fake_g)
+        g_loss = -CONST.torch.mean(prediction_fake_g) #* will try to generate more negative values, thus bigger predcition_fake_g values, thus discriminator is fooled
         # Backpropagate the gradients
         g_loss.backward()
         # Update the weights
         self.g_optimizer.step()
 
-        return d_loss_real + d_loss_fake, g_loss
+        return d_loss_real.detach() + d_loss_fake.detach(), g_loss.detach()
 
     def train_prep(self):
         print("Number of parameters in G: {}".format(
@@ -97,7 +97,7 @@ class GAN:
         step = 0
         progress_bar = tqdm(total=CONST.n_steps, initial=step, ncols=100, mininterval=1)
 
-        n_batches = 16448//64 #! cheated numbers
+        n_batches = 16448//CONST.BATCH_SIZE #! cheated numbers
         while step < CONST.n_steps:
             batch_count = 0
             for real_samples in self.data_loader:
@@ -111,7 +111,7 @@ class GAN:
 
                 # Update losses to progress bar
                 progress_bar.set_description_str(
-                    "(d_loss={: 8.6f}, g_loss={: 8.6f}), BP={: 3.3f}".format(d_loss, g_loss, batch_count/n_batches*100))
+                    "(d_loss={: 8.6f}, g_loss={: 8.6f}), BP={: 2.2f}, RAM={: 2.2f}".format(d_loss, g_loss, batch_count/n_batches*100,print_ram_usage()))
                 
                 wandb.log({"running_g_loss": self.running_g_loss,"running_d_loss": self.running_d_loss},step=step)
                 batch_count +=1
@@ -121,8 +121,7 @@ class GAN:
 
             if step % CONST.sample_interval == 0:
                 self.generator_generate_sample_output(real_samples,step)
-                CONST.torch.save(self.generator.state_dict(), os.path.join(CONST.training_output_path_root,f'generator_{step}.pth'))
-                CONST.torch.save(self.discriminator.state_dict(), os.path.join(CONST.training_output_path_root,f'discriminator_{step}.pth'))
+                self.save_weights(step)
 
                 # wandb.log({"g_parameters": wandb.Histogram(self.generator.parameters())})
                 # wandb.log({"d_parameters": wandb.Histogram(self.discriminator.parameters())})
@@ -145,7 +144,7 @@ class GAN:
 
     def generator_generate_sample_output(self,real_samples,step):
         # Create an empty dictionary to sotre history samples
-        history_samples = {}
+        # history_samples = {}
 
         # Get generated samples
         self.generator.eval()
@@ -156,7 +155,7 @@ class GAN:
         temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val.cpu().detach() ,self.drum_gt_val.cpu().detach()  ),axis = 1).numpy()
         temp = temp.transpose(1,0,2,3)
         temp = temp.reshape(temp.shape[0] , temp.shape[1] * temp.shape[2] , temp.shape[3])
-        history_samples[step] = temp
+        # history_samples[step] = temp
 
 
         # Display loss curves
@@ -165,10 +164,18 @@ class GAN:
         # CONST.writer.add_scalar("g_loss" , self.running_g_loss , step)
         # CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
 
-        image_path = display_pianoRoll(history_samples[step],step,self.genre_val)
+        image_path = display_pianoRoll(temp,step,self.genre_val)
         wandb.log({f"sample_piano_roll": wandb.Image(image_path)},step=step)
         
 
     def smooth_loss(self, d_loss , g_loss):
         self.running_d_loss = 0.05 * d_loss + 0.95 * self.running_d_loss
         self.running_g_loss = 0.05 * g_loss + 0.95 * self.running_g_loss
+    def save_weights(self,step):
+        CONST.torch.save(self.generator.state_dict(), os.path.join(CONST.training_output_path_root,f'generator_{step}.pth'))
+        CONST.torch.save(self.discriminator.state_dict(), os.path.join(CONST.training_output_path_root,f'discriminator_{step}.pth'))
+    def load_weights(self,G_path,D_path):
+        self.generator.load_state_dict(CONST.torch.load(G_path))
+        self.discriminator.load_state_dict(CONST.torch.load(D_path))
+
+    

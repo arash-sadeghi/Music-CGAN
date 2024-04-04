@@ -1,8 +1,7 @@
-## TODO
-- [ ] integrate WandB.
-- [ ] after model is trained, make a runner version:
-    - [ ] either bundle it to .exe and get input track from a txt file or put in a react app or sth.
-- [ ] current version works offline with a given midi file. In next version I will make it run realtime.
-    - [ ] make it lear drum track for next time step. for now use looping
+## Note
+- in gpu machine in one minute we proceed with 3 step with batch size of 32.
+- out of memory issue: [link](https://discuss.pytorch.org/t/cpu-ram-usage-increases-inside-each-epoch-and-keeps-increasing-for-all-epochs-oserror-errno-12-cannot-allocate-memory/89682/5)
+storing losses without detacthing them causes accumulation of data.
 
+## TODO
 - in gan class couldn't fully understand how lossed for discrimator are calculated. Its not same us original GAN.

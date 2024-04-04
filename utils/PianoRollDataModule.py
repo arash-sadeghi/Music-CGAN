@@ -53,7 +53,7 @@ class PianoRollDataModule(pl.LightningDataModule):
             self.data_np , self.genre_per_sample= resize_to_batch_compatible(self.data_np , self.genre_per_sample)
 
         custom_dataset = CustomDataset(drum = self.data_np[:,0,:,:].astype(np.float32) , bass = self.data_np[:,3,:,:].astype(np.float32) , genre = self.genre_per_sample)
-        self.data_loader = CONST.torch.utils.data.DataLoader(custom_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
+        self.data_loader = CONST.torch.utils.data.DataLoader(custom_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True, pin_memory = True)
         
         print("Number of Batches:", len(self.data_loader))
     

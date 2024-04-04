@@ -5,4 +5,6 @@ if __name__ == '__main__': #! without this if statement you will see a  wierd er
     dm = PianoRollDataModule()
     model = GAN(dm.train_dataloader())
 
+    # model.load_weights()
+
     model.train_loop()
