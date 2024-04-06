@@ -8,6 +8,18 @@ from pypianoroll import Multitrack, Track
 from tqdm import tqdm
 import random
 
+import psutil
+
+def print_ram_usage():
+    # Get virtual memory information
+    vmem = psutil.virtual_memory()
+
+    # Calculate and format memory usage and free space in GB
+    used_gb = round(vmem.used / (1024 * 1024 * 1024), 2)  # Convert bytes to GB
+    free_gb = round(vmem.available / (1024 * 1024 * 1024), 2)  # Convert bytes to GB
+
+    return free_gb
+
 def revert_dictionary(input_dict):
     # Create a new dictionary with swapped keys and values
     reverted_dict = {value: key for key, value in input_dict.items()}
