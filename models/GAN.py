@@ -7,10 +7,10 @@ from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll
 import wandb
 import os
 class GAN:
-    def __init__(self,data_loader) -> None:
+    def __init__(self,train_dataloader) -> None:
         self.discriminator = Discriminator() 
         self.generator = Generator() 
-        self.data_loader = data_loader
+        self.train_dataloader = train_dataloader
         print(f"[+] is gpu availble {CONST.torch.cuda.is_available()}")
         self.running_d_loss, self.running_g_loss= 0.0, 0.0
         wandb.init(project="Music-CGAN")
@@ -100,7 +100,7 @@ class GAN:
         n_batches = 16448//64 #! cheated numbers
         while step < CONST.n_steps:
             batch_count = 0
-            for real_samples in self.data_loader:
+            for real_samples in self.train_dataloader:
 
                 self.generator.train() #! put generator in train mode. why dont we do this to discriminator?
 

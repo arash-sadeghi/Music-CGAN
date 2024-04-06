@@ -47,15 +47,20 @@ class PianoRollDataModule(pl.LightningDataModule):
 
         # draw_example_pianoroll(data)
 
-
-            
+        self.rock_dataloader = self.generate_rock_dataloader()
+        
         if self.data_np.shape[0]%CONST.BATCH_SIZE != 0:
             self.data_np , self.genre_per_sample= resize_to_batch_compatible(self.data_np , self.genre_per_sample)
 
-        custom_dataset = CustomDataset(drum = self.data_np[:,0,:,:].astype(np.float32) , bass = self.data_np[:,3,:,:].astype(np.float32) , genre = self.genre_per_sample)
-        self.data_loader = CONST.torch.utils.data.DataLoader(custom_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
+        train_dataset = CustomDataset(drum = self.data_np[:,0,:,:].astype(np.float32) , bass = self.data_np[:,3,:,:].astype(np.float32) , genre = self.genre_per_sample)
+        self.train_data_loader = CONST.torch.utils.data.DataLoader(train_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
         
-        print("Number of Batches:", len(self.data_loader))
+        print("Number of Batches:", len(self.train_data_loader))
+    
+    def generate_rock_dataloader(self):
+        rock_measures_filter = self.data_np[self.genre_per_sample == CONST.genre_code['Pop_Rock']]
+        rock_measures =  CustomDataset(drum = self.data_np[rock_measures_filter,0,:,:].astype(np.float32) , bass = self.data_np[rock_measures_filter,3,:,:].astype(np.float32) , genre = self.genre_per_sample[rock_measures_filter])   
+        return CONST.torch.utils.data.DataLoader(rock_measures, batch_size=1, shuffle=False)
     
     def setup(self, stage=None): #! 2 automatically called upon calling trainer.fit(model , dm) in main , after execution of prepare_data. stage automatiically passed
         # # Assign train/val datasets for use in dataloaders
@@ -68,9 +73,12 @@ class PianoRollDataModule(pl.LightningDataModule):
         #     self.mnist_test = MNIST(self.data_dir, train=False, transform=self.transform)
         pass
 
-    def train_dataloader(self):
-        return self.data_loader
-    
+    def get_train_dataloader(self):
+        return self.train_data_loader
+
+    def get_rock_dataloader(self):
+        return self.rock_dataloader
+
     def save_data_np(self):
         np.save(PianoRollDataModule.DATA_SAVE_URL , self.data_np)
         np.save(PianoRollDataModule.GENRE_SAVE_URL , self.genre_per_sample)
