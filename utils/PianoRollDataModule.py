@@ -47,7 +47,7 @@ class PianoRollDataModule(pl.LightningDataModule):
 
         # draw_example_pianoroll(data)
 
-        self.rock_dataloader = self.generate_rock_dataloader()
+        # self.rock_dataloader = self.generate_rock_dataloader() #TODO has error
         
         if self.data_np.shape[0]%CONST.BATCH_SIZE != 0:
             self.data_np , self.genre_per_sample= resize_to_batch_compatible(self.data_np , self.genre_per_sample)

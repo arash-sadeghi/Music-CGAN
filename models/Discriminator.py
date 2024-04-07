@@ -49,6 +49,7 @@ class Discriminator(nn.Module):
         self.conv5 = DiscriminatorBlock(128, 128, (2, 1, 1), (1, 1, 1))
         self.conv6 = DiscriminatorBlock(128, 256, (3, 1, 1), (3, 1, 1))
         self.dense = nn.Linear(256, 1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, genre):
         genre = self.embedder(genre)
@@ -64,4 +65,5 @@ class Discriminator(nn.Module):
         x = self.conv6(x)
         x = x.view(-1, 256)
         x = self.dense(x)
+        x = self.sigmoid(x)
         return x

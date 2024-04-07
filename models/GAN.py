@@ -7,6 +7,8 @@ from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll,
 import wandb
 import os
 class GAN:
+    REAL_LABEL = 1
+    FAKE_LABEL = 0
     def __init__(self,train_dataloader) -> None:
         self.discriminator = Discriminator() 
         self.generator = Generator() 
@@ -17,12 +19,17 @@ class GAN:
         wandb.watch(self.generator)
         wandb.watch(self.discriminator)
 
+        self.criterion = CONST.torch.nn.BCELoss()
+        ngpu = 1
+        self.device = CONST.torch.device("cuda:0" if (CONST.torch.cuda.is_available() and ngpu > 0) else "cpu")
+        # self.device = CONST.torch.device("cpu")
+        print('[GAN] device',self.device)
 
     def train_one_step(self , real_samples):
         latent = CONST.torch.randn(CONST.BATCH_SIZE, CONST.latent_dim) 
 
         # Transfer data to GPU
-        if CONST.torch.cuda.is_available():
+        if self.device.type == 'cuda':
             real_samples = [_.cuda() for _ in real_samples]
             latent = latent.cuda()
 
@@ -34,7 +41,10 @@ class GAN:
         genre = real_samples[2]
         prediction_real = self.discriminator(drum_and_bass, genre)
         ### Compute the loss function
-        d_loss_real = -CONST.torch.mean(prediction_real)
+        # d_loss_real = -CONST.torch.mean(prediction_real)
+        label = CONST.torch.full((CONST.BATCH_SIZE,), GAN.REAL_LABEL, dtype=CONST.torch.float, device=self.device)
+        d_loss_real = self.criterion(prediction_real.squeeze(), label)
+        d_loss_real_mean = d_loss_real.mean().item()
         ### Backpropagate the gradients
         d_loss_real.backward()
         
@@ -45,14 +55,16 @@ class GAN:
         fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
         prediction_fake_d = self.discriminator(fake_samples_conditioned.detach() , genre)
         ### Compute the loss function
-        d_loss_fake = CONST.torch.mean(prediction_fake_d) #* discriminator will try to make this zero, thus learning to give zero label to fake data
+        label.fill_(GAN.FAKE_LABEL)
+        d_loss_fake = self.criterion(prediction_fake_d.squeeze(), label)
+        d_loss_fake_mean = d_loss_fake.mean().item()
         ### Backpropagate the gradients
         d_loss_fake.backward()
 
         # Compute gradient penalty
         #! I Don't Know what does this do
         gradient_penalty = 10.0 * compute_gradient_penalty(
-            self.discriminator, drum_and_bass.data, fake_samples_conditioned.data, genre)
+            self.discriminator, drum_and_bass.data, fake_samples_conditioned.data, genre, self.device)
         # Backpropagate the gradients
         gradient_penalty.backward()
 
@@ -65,13 +77,16 @@ class GAN:
         # Get discriminator outputs for the fake samples
         prediction_fake_g = self.discriminator(fake_samples_conditioned,genre)
         # Compute the loss function
-        g_loss = -CONST.torch.mean(prediction_fake_g) #* will try to generate more negative values, thus bigger predcition_fake_g values, thus discriminator is fooled
+        label.fill_(GAN.REAL_LABEL)
+        g_loss_fake = self.criterion(prediction_fake_g.squeeze(), label)
+        g_loss_fake_mean = g_loss_fake.mean().item()
+
         # Backpropagate the gradients
-        g_loss.backward()
+        g_loss_fake.backward()
         # Update the weights
         self.g_optimizer.step()
 
-        return d_loss_real.detach() + d_loss_fake.detach(), g_loss.detach()
+        return d_loss_real_mean +d_loss_fake_mean, g_loss_fake_mean
 
     def train_prep(self):
         print("Number of parameters in G: {}".format(
@@ -86,7 +101,7 @@ class GAN:
         self.sample_latent_eval = CONST.torch.randn(CONST.n_samples, CONST.latent_dim)
 
         # Transfer the neural nets and samples to GPU
-        if CONST.torch.cuda.is_available():
+        if self.device.type == 'cuda':
             self.discriminator = self.discriminator.cuda()
             self.generator = self.generator.cuda()
             self.sample_latent_eval = self.sample_latent_eval.cuda()
@@ -136,7 +151,7 @@ class GAN:
         self.bass_val = drum_and_bass[:CONST.n_samples,1,:,:].unsqueeze(1)
         self.drum_gt_val = drum_and_bass[:CONST.n_samples,0,:,:].unsqueeze(1)
 
-        if CONST.torch.cuda.is_available():
+        if self.device.type == 'cuda':
             self.genre_val= self.genre_val.cuda()
             self.bass_val = self.bass_val.cuda()
             self.drum_gt_val = self.drum_gt_val.cuda()

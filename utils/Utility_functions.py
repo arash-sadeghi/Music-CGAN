@@ -26,20 +26,20 @@ def revert_dictionary(input_dict):
     return reverted_dict
 
 
-def compute_gradient_penalty( discriminator, real_samples, fake_samples,genre): #! static method
+def compute_gradient_penalty( discriminator, real_samples, fake_samples,genre , device): #! static method
     """Compute the gradient penalty for regularization. Intuitively, the
     gradient penalty help stablize the magnitude of the gradients that the
     discriminator provides to the generator, and thus help stablize the training
     of the generator."""
     # Get random interpolations between real and fake samples
-    alpha = CONST.torch.rand(real_samples.size(0), 1, 1, 1).cuda() if CONST.torch.cuda.is_available() else CONST.torch.rand(real_samples.size(0), 1, 1, 1)
+    alpha = CONST.torch.rand(real_samples.size(0), 1, 1, 1).cuda() if device.type == 'cuda' else CONST.torch.rand(real_samples.size(0), 1, 1, 1)
 
     interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples))
     interpolates = interpolates.requires_grad_(True)
     # Get the discriminator output for the interpolations
     d_interpolates = discriminator(interpolates,genre)
     # Get gradients w.r.t. the interpolations
-    fake = CONST.torch.ones(real_samples.size(0), 1).cuda() if CONST.torch.cuda.is_available() else CONST.torch.ones(real_samples.size(0), 1)
+    fake = CONST.torch.ones(real_samples.size(0), 1).cuda() if device.type == 'cuda' else CONST.torch.ones(real_samples.size(0), 1)
     gradients = CONST.torch.autograd.grad(
         outputs=d_interpolates,
         inputs=interpolates,
