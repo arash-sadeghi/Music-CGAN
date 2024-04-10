@@ -4,11 +4,24 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import matplotlib.pyplot as plt
 import pypianoroll
-from pypianoroll import Multitrack, Track
+from pypianoroll import Multitrack, BinaryTrack
 from tqdm import tqdm
 import random
 
 import psutil
+
+from time import time,ctime
+
+def create_path_if_not_exists(path):
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+            print(f"[-][UTIL] Created path: {path}")
+        except OSError as e:
+            print(f"[-][UTIL] Error creating path {path}: {e}")
+
+def get_time_name():
+    return ctime(time()).replace(':','_').replace(' ','_').replace('__','_')
 
 def print_ram_usage():
     # Get virtual memory information
@@ -87,7 +100,7 @@ def draw_example_pianoroll(data):
             np.concatenate(data, 1)[idx], 
             ((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches))
             )
-        tracks.append(Track(name=track_name, program=program, is_drum=is_drum, pianoroll=pianoroll)) #! Track is from Pypianoroll
+        tracks.append(BinaryTrack(name=track_name, program=program, is_drum=is_drum, pianoroll=pianoroll)) #! Track is from Pypianoroll
     multitrack = Multitrack(tracks=tracks, tempo=CONST.tempo_array, resolution=CONST.beat_resolution)
     axs = multitrack.plot()
     plt.gcf().set_size_inches((16, 8))
@@ -101,9 +114,7 @@ def draw_example_pianoroll(data):
     # plt.tight_layout()
     plt.savefig(CONST.example_dataset_path+".png")
 
-    multitrack.save(CONST.example_dataset_path+".npz")
-    tmp = pypianoroll.load(CONST.example_dataset_path+".npz")
-    tmp.write(CONST.example_dataset_path+".midi")
+    multitrack.write(CONST.example_dataset_path+".midi")
 
 def pianoroll2numpy(id_list,genres):
     data = []
@@ -152,21 +163,19 @@ def get_pianoroll_id_list():
                 genres.extend([path[8:-4]]*len(files)) #* this gets rid of id_ist_ in the beggining and .txt at the end and makes as many instance of genere as the songs inside
     return list(set(id_list)) , genres #! conversion to set and back is for getting rid of duplicates but there are no duplicate instances in amg
 
-def display_pianoRoll(samples,step="",genre = ""):
+def display_pianoRoll(samples,step='',genre = "",output_path=""):
     # samples = samples.transpose(1, 0, 2, 3).reshape(CONST.n_tracks, -1, CONST.n_pitches)
     tracks = []
 
-    for idx, (program, is_drum, track_name) in enumerate(zip([0,33,0], [True,False,True], ['Drum','Bass','Drum'])):
+    for idx, (program, is_drum, track_name) in enumerate(zip([0,33], [True,False], ['Drum','Bass'])):
         # pianoroll = np.pad(np.concatenate(data[:4], 1)[idx], ((0, 0), (lowest_pitch, 128 - lowest_pitch - n_pitches)))
         pianoroll = np.pad(samples[idx] > 0.5,((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
-        tracks.append(Track(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
+        tracks.append(BinaryTrack(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
 
     m = Multitrack(tracks=tracks,tempo=CONST.tempo_array,resolution=CONST.beat_resolution)
-    #! save music to npz -> midi
-    m.save(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
-    tmp = pypianoroll.load(os.path.join(CONST.training_output_path_root,str(step)+'.npz'))
-    tmp.write(os.path.join(CONST.training_output_path_root,str(step)+'.midi'))
-    with open(os.path.join(CONST.training_output_path_root,str(step)+'genre.txt'),'w') as f:
+    m.write(os.path.join(output_path,str(step)+'.midi'))
+    #* record genre
+    with open(os.path.join(output_path,str(step)+'genre.txt'),'w') as f:
         f.write(str(genre))
 
     axs = m.plot()
@@ -184,7 +193,7 @@ def display_pianoRoll(samples,step="",genre = ""):
     #* create title from genre
     genre_dict_inv = revert_dictionary(CONST.genre_code)
     plt.title(', '.join([genre_dict_inv[int(_)] for _ in genre]))
-    image_path = os.path.join(CONST.training_output_path_root,str(step)+'.png')
+    image_path = os.path.join(output_path,str(step)+'.png')
     plt.savefig(image_path)
     return image_path
 

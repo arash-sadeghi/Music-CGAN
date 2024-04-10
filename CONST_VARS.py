@@ -14,7 +14,6 @@ class CONST:
     dataset_path = os.path.join(dataset_root,'lpd_5','lpd_5_cleansed')
     amg_path = os.path.join(dataset_root,"amg")
     outputs_url = os.path.join('data','PianoRoll','results','genre')
-    training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root')
 
     BATCH_SIZE= 64*4
     sample_interval = 100  #! in what step interval during training we should make an example output.
