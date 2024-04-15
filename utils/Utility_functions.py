@@ -12,6 +12,12 @@ import psutil
 
 from time import time,ctime
 
+def highest_divisible_divisor(n , max = 32):
+    for i in range(max, 0, -1):
+        if n % i == 0:
+            return i
+    return 1  # If no divisor is found, return 1
+
 def create_path_if_not_exists(path):
     if not os.path.exists(path):
         try:

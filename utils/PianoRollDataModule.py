@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, random_split, Dataset
 from torchvision.datasets import MNIST
 import pytorch_lightning as pl
 from CONST_VARS import CONST
-from utils.Utility_functions import  resize_to_batch_compatible,get_pianoroll_id_list,pianoroll2numpy
+from utils.Utility_functions import  resize_to_batch_compatible,get_pianoroll_id_list,pianoroll2numpy , highest_divisible_divisor
 import numpy as np
 import os
 import torch
@@ -48,12 +48,15 @@ class PianoRollDataModule(pl.LightningDataModule):
         # draw_example_pianoroll(data)
 
         # self.rock_dataloader = self.generate_rock_dataloader() #TODO has error
+
+        if self.batch_size == 'HDD': #* highest devisable devisor
+            self.batch_size = highest_divisible_divisor(self.data_np.shape[0]) #* to make batch size maximum possible devisor of data size with a limit imposed by memory size. Usefull only for performance evaluations
         
-        if self.data_np.shape[0]%CONST.BATCH_SIZE != 0:
+        if self.data_np.shape[0] % self.batch_size != 0:
             self.data_np , self.genre_per_sample= resize_to_batch_compatible(self.data_np , self.genre_per_sample)
 
         train_dataset = CustomDataset(drum = self.data_np[:,0,:,:].astype(np.float32) , bass = self.data_np[:,3,:,:].astype(np.float32) , genre = self.genre_per_sample)
-        self.train_data_loader = CONST.torch.utils.data.DataLoader(train_dataset, batch_size=CONST.BATCH_SIZE, shuffle=True)
+        self.train_data_loader = CONST.torch.utils.data.DataLoader(train_dataset, batch_size= self.batch_size , shuffle=True)
         
         print("Number of Batches:", len(self.train_data_loader))
     
