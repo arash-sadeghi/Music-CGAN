@@ -7,7 +7,7 @@ from models.Generator import Generator
 import tqdm
 import matplotlib.pyplot as plt
 
-WEIGTH_PATH = os.path.join('data','PianoRoll','results','genre','training_output_path_root','originalWed_Apr_17_15_51_09_2024','generator')
+WEIGTH_PATH = os.path.join('data','PianoRoll','results','genre','training_output_path_root','high_res_measureThu_Apr_18_18_08_05_2024','generator')
 def calculate_DP(data , batch_size):
     tolerance = 0.1
     drum_pattern_mask = np.tile([1., tolerance], 8)
