@@ -8,14 +8,16 @@ import tqdm
 import matplotlib.pyplot as plt
 
 WEIGTH_PATH = os.path.join('data','PianoRoll','results','genre','training_output_path_root','high_res_measureThu_Apr_18_18_08_05_2024','generator')
-def calculate_DP(data , batch_size):
+def calculate_DP(data_orig , batch_size):
     tolerance = 0.1
     drum_pattern_mask = np.tile([1., tolerance], 8)
     drum_pattern_mask = np.tile(drum_pattern_mask, (batch_size, CONST.n_measures, 1))
 
+    data = (data_orig.clone() > 0).float() * 1 #! binirizing data
     data = data.sum(axis=3) #* sum pitches
     masked_drum = data * drum_pattern_mask
-    return masked_drum.mean().item()
+    DP = masked_drum.sum()/torch.count_nonzero(data_orig)
+    return DP.item()
 
 def plot(DP_list , data_DP ,EB_list ,data_EB ):
     plt.plot(DP_list , label='generator DP', marker = 'o')
@@ -29,8 +31,15 @@ def plot(DP_list , data_DP ,EB_list ,data_EB ):
     plt.show()
 
 
-def calculate_EB(data):
-    return 1 - torch.mean(torch.any(data.view(data.shape[0],data.shape[1],-1) > 0.5, dim=2).float()).item()
+def calculate_EB(data_orig):
+    # data = (data_orig > 0).float() * 1
+    data = data_orig.clone()
+    return 1 - torch.mean(
+        torch.any(
+            data.view(data.shape[0],data.shape[1],-1) > 0.5,
+            dim=2
+            ).float()
+        ).item()
 
 def evaluate_generator(dm):
     train_data = dm.get_train_dataloader()
