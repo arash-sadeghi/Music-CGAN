@@ -6,7 +6,7 @@ import os
 from models.Generator import Generator
 import tqdm
 import matplotlib.pyplot as plt
-
+RESULT_ROOT = os.path.join('data','PianoRoll','results','performance_measures','18May2024')
 WEIGTH_PATH = os.path.join('data','PianoRoll','results','genre','training_output_path_root','high_res_measureThu_Apr_18_18_08_05_2024','generator')
 def calculate_DP(data_orig , batch_size):
     tolerance = 0.1
@@ -27,7 +27,7 @@ def plot(DP_list , data_DP ,EB_list ,data_EB ):
 
     plt.legend()
 
-    plt.savefig('performance results.png')
+    plt.savefig(os.path.join(RESULT_ROOT,'performance results.png'))
     plt.show()
 
 
@@ -92,16 +92,16 @@ def evaluate(dm):
     data_DP , data_EB = evaluate_dataset(dm,len(EB_list))
     
     DP_list = np.array(DP_list) 
-    np.save('DP_list.npy',DP_list)
+    np.save(os.path.join(RESULT_ROOT,'DP_list.npy'),DP_list)
 
     data_DP = np.array(data_DP)
-    np.save('data_DP.npy',data_DP)
+    np.save(os.path.join(RESULT_ROOT,'data_DP.npy'),data_DP)
 
     EB_list = np.array(EB_list)
-    np.save('EB_list.npy',EB_list)
+    np.save(os.path.join(RESULT_ROOT,'EB_list.npy'),EB_list)
 
     data_EB = np.array(data_EB)
-    np.save('data_EB.npy',data_EB)
+    np.save(os.path.join(RESULT_ROOT,'data_EB.npy'),data_EB)
     
     plot(DP_list , data_DP ,EB_list ,data_EB )
     
