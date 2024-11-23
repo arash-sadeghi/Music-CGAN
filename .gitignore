@@ -7,3 +7,6 @@ commitText.txt
 runs/
 .DS_Store
 wandb/
+.vscode/
+*.npy
+*.png

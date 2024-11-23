@@ -38,7 +38,10 @@ class DiscriminatorBlock(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv0 = DiscriminatorBlock(2, 16, (1, 1, 12), (1, 1, 12)) 
+        embedding_size = CONST.n_pitches
+        num_embeddings = len(CONST.genre_code)  
+        self.embedder = nn.Embedding(num_embeddings, embedding_size)
+        self.conv0 = DiscriminatorBlock(3, 16, (1, 1, 12), (1, 1, 12)) 
         self.conv1 = DiscriminatorBlock(16, 16, (1, 4, 1), (1, 4, 1)) 
         self.conv2 = DiscriminatorBlock(16, 64, (1, 1, 3), (1, 1, 1))
         self.conv3 = DiscriminatorBlock(64, 64, (1, 1, 4), (1, 1, 4))
@@ -46,9 +49,13 @@ class Discriminator(nn.Module):
         self.conv5 = DiscriminatorBlock(128, 128, (2, 1, 1), (1, 1, 1))
         self.conv6 = DiscriminatorBlock(128, 256, (3, 1, 1), (3, 1, 1))
         self.dense = nn.Linear(256, 1)
+        # self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x):
-        x = x.view(-1, 2,  CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
+    def forward(self, x, genre):
+        genre = self.embedder(genre)
+        genre = genre.unsqueeze(1).repeat(1,64,1).unsqueeze(1)
+        x = CONST.torch.cat((x,genre),axis = 1)
+        x = x.view(-1, 3,  CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
         x = self.conv0(x)
         x = self.conv1(x)
         x = self.conv2(x)
@@ -58,4 +65,5 @@ class Discriminator(nn.Module):
         x = self.conv6(x)
         x = x.view(-1, 256)
         x = self.dense(x)
+        # x = self.sigmoid(x)
         return x

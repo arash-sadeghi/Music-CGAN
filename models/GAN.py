@@ -3,56 +3,77 @@ from models.Discriminator import Discriminator
 from CONST_VARS import CONST
 from tqdm import tqdm
 from IPython.display import clear_output
-from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll
+from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll, print_ram_usage, get_time_name,create_path_if_not_exists
 import wandb
+import os
 
 class GAN:
-    def __init__(self,data_loader) -> None:
+    REAL_LABEL = 1
+    FAKE_LABEL = 0
+    COMMENT = 'high_res_measure'
+    training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root',COMMENT+get_time_name())
+
+    def __init__(self,train_dataloader) -> None:
         self.discriminator = Discriminator() 
         self.generator = Generator() 
-        self.data_loader = data_loader
+        self.train_dataloader = train_dataloader
         print(f"[+] is gpu availble {CONST.torch.cuda.is_available()}")
         self.running_d_loss, self.running_g_loss= 0.0, 0.0
         wandb.init(project="Music-CGAN")
+        wandb.run.name += GAN.COMMENT+get_time_name()
         wandb.watch(self.generator)
         wandb.watch(self.discriminator)
+        create_path_if_not_exists(GAN.training_output_path_root)
 
+        self.criterion = CONST.torch.nn.BCELoss()
+        ngpu = 1
+        self.device = CONST.torch.device("cuda:0" if (CONST.torch.cuda.is_available() and ngpu > 0) else "cpu")
+        # self.device = CONST.torch.device("cpu")
+        print('[GAN] device',self.device)
 
     def train_one_step(self , real_samples):
-        """Train the networks for one step."""
-        # Sample from the lantent distribution
-        latent = CONST.torch.randn(CONST.BATCH_SIZE, CONST.latent_dim) #! latent vector is always a random vector
+        latent = CONST.torch.randn(CONST.BATCH_SIZE, CONST.latent_dim) 
 
         # Transfer data to GPU
-        if CONST.torch.cuda.is_available():
-            real_samples = real_samples.cuda()
+        if self.device.type == 'cuda':
+            real_samples = [_.cuda() for _ in real_samples]
             latent = latent.cuda()
 
         # === Train the discriminator ===
         ## train for real images 
         self.d_optimizer.zero_grad()
         ### Get discriminator outputs for the real samples
-        prediction_real = self.discriminator(real_samples[0])
+        drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
+        genre = real_samples[2]
+        prediction_real = self.discriminator(drum_and_bass, genre)
         ### Compute the loss function
         d_loss_real = -CONST.torch.mean(prediction_real)
+
+        # label = CONST.torch.full((CONST.BATCH_SIZE,), GAN.REAL_LABEL, dtype=CONST.torch.float, device=self.device)
+        # d_loss_real = self.criterion(prediction_real.squeeze(), label)
+        # d_loss_real_mean = d_loss_real.mean().item()
         ### Backpropagate the gradients
         d_loss_real.backward()
         
         ## train for fake images
         ### Generate fake samples with the generator
-        fake_samples = self.generator(latent,real_samples[0][:,1,:,:]) 
+        fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
         ### Get discriminator outputs for the fake samples
-        fake_samples_conditioned = CONST.torch.cat((fake_samples,real_samples[0][:,1,:,:].unsqueeze(1)),axis=1)
-        prediction_fake_d = self.discriminator(fake_samples_conditioned.detach())
+        fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
+        prediction_fake_d = self.discriminator(fake_samples_conditioned.detach() , genre)
         ### Compute the loss function
-        d_loss_fake = CONST.torch.mean(prediction_fake_d)
+        d_loss_fake = CONST.torch.mean(prediction_fake_d) #* discriminator will try to make this zero, thus learning to give zero label to fake data
+        
+        # label.fill_(GAN.FAKE_LABEL)
+        # d_loss_fake = self.criterion(prediction_fake_d.squeeze(), label)
+        # d_loss_fake_mean = d_loss_fake.mean().item()
         ### Backpropagate the gradients
         d_loss_fake.backward()
 
         # Compute gradient penalty
         #! I Don't Know what does this do
         gradient_penalty = 10.0 * compute_gradient_penalty(
-            self.discriminator, real_samples[0].data, fake_samples[0].data)
+            self.discriminator, drum_and_bass.data, fake_samples_conditioned.data, genre, self.device)
         # Backpropagate the gradients
         gradient_penalty.backward()
 
@@ -63,15 +84,21 @@ class GAN:
         # Reset cached gradients to zero
         self.g_optimizer.zero_grad()
         # Get discriminator outputs for the fake samples
-        prediction_fake_g = self.discriminator(fake_samples_conditioned)
+        prediction_fake_g = self.discriminator(fake_samples_conditioned,genre)
         # Compute the loss function
-        g_loss = -CONST.torch.mean(prediction_fake_g)
+        g_loss_fake = -CONST.torch.mean(prediction_fake_g) #* will try to generate more negative values, thus bigger predcition_fake_g values, thus discriminator is fooled
+        
+        # label.fill_(GAN.REAL_LABEL)
+        # g_loss_fake = self.criterion(prediction_fake_g.squeeze(), label)
+        # g_loss_fake_mean = g_loss_fake.mean().item()
+
         # Backpropagate the gradients
-        g_loss.backward()
+        g_loss_fake.backward()
         # Update the weights
         self.g_optimizer.step()
 
-        return d_loss_real + d_loss_fake, g_loss
+        # return d_loss_real_mean +d_loss_fake_mean, g_loss_fake_mean
+        return d_loss_real.detach() + d_loss_fake.detach(), g_loss_fake.detach()
 
     def train_prep(self):
         print("Number of parameters in G: {}".format(
@@ -86,7 +113,7 @@ class GAN:
         self.sample_latent_eval = CONST.torch.randn(CONST.n_samples, CONST.latent_dim)
 
         # Transfer the neural nets and samples to GPU
-        if CONST.torch.cuda.is_available():
+        if self.device.type == 'cuda':
             self.discriminator = self.discriminator.cuda()
             self.generator = self.generator.cuda()
             self.sample_latent_eval = self.sample_latent_eval.cuda()
@@ -97,10 +124,11 @@ class GAN:
         step = 0
         progress_bar = tqdm(total=CONST.n_steps, initial=step, ncols=100, mininterval=1)
 
+        n_batches = 16448//CONST.BATCH_SIZE #! cheated numbers
         while step < CONST.n_steps:
-            for real_samples in self.data_loader: #! [batch_size , instruments, time, pitch]
+            batch_count = 0
+            for real_samples in self.train_dataloader:
 
-                # Train the neural networks
                 self.generator.train() #! put generator in train mode. why dont we do this to discriminator?
 
                 d_loss, g_loss = self.train_one_step(real_samples)
@@ -110,36 +138,55 @@ class GAN:
 
                 # Update losses to progress bar
                 progress_bar.set_description_str(
-                    "(d_loss={: 8.6f}, g_loss={: 8.6f})".format(d_loss, g_loss))
+                    "(d_loss={: 8.6f}, g_loss={: 8.6f}), BP={: 2.2f}, RAM={: 2.2f}".format(d_loss, g_loss, batch_count/n_batches*100,print_ram_usage()))
                 
                 wandb.log({"running_g_loss": self.running_g_loss,"running_d_loss": self.running_d_loss},step=step)
+                batch_count +=1
 
-                if step % CONST.sample_interval == 0:
-                    self.generator_generate_sample_output(real_samples,step)
-                    CONST.torch.save(self.generator.state_dict(), CONST.training_output_path_root+f'generator_{step}.pth')
-                    CONST.torch.save(self.discriminator.state_dict(), CONST.training_output_path_root+f'discriminator_{step}.pth')
+            if step == 0:
+                self.set_val_data(real_samples)
 
-                    # wandb.log({"g_parameters": wandb.Histogram(self.generator.parameters())})
-                    # wandb.log({"d_parameters": wandb.Histogram(self.discriminator.parameters())})
+            if step % CONST.sample_interval == 0:
+                self.generator_generate_sample_output(real_samples,step)
+                self.save_weights(step)
+
+                # wandb.log({"g_parameters": wandb.Histogram(self.generator.parameters())})
+                # wandb.log({"d_parameters": wandb.Histogram(self.discriminator.parameters())})
 
 
-                progress_bar.update(1)
-                step +=1
+            progress_bar.update(1)
+            step +=1
   
+    def set_val_data(self,real_samples):
+        drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
+        self.genre_val = real_samples [2][:CONST.n_samples]
+        self.bass_val = drum_and_bass[:CONST.n_samples,1,:,:].unsqueeze(1)
+        self.drum_gt_val = drum_and_bass[:CONST.n_samples,0,:,:].unsqueeze(1)
+
+        if self.device.type == 'cuda':
+            self.genre_val= self.genre_val.cuda()
+            self.bass_val = self.bass_val.cuda()
+            self.drum_gt_val = self.drum_gt_val.cuda()
+
+
     def generator_generate_sample_output(self,real_samples,step):
         # Create an empty dictionary to sotre history samples
-        history_samples = {}
+        # history_samples = {}
 
         # Get generated samples
         self.generator.eval()
 
-        samples = self.generator(self.sample_latent_eval,real_samples[0][0:CONST.n_samples,1,:,:].unsqueeze(0))
+        samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
 
         #* reshaping data inorder to be saved as image
-        temp = CONST.torch.cat((samples.cpu().detach(),real_samples[0][0:CONST.n_samples,1,:,:].unsqueeze(1)),axis = 1).numpy()
+        if step == 0: #* sample zero is ground truth
+            temp = CONST.torch.cat((self.drum_gt_val.cpu().detach(),self.bass_val.cpu().detach()  ),axis = 1).numpy()
+        else: 
+            temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val.cpu().detach() ),axis = 1).numpy()
+
         temp = temp.transpose(1,0,2,3)
         temp = temp.reshape(temp.shape[0] , temp.shape[1] * temp.shape[2] , temp.shape[3])
-        history_samples[step] = temp
+        # history_samples[step] = temp
 
 
         # Display loss curves
@@ -148,10 +195,18 @@ class GAN:
         # CONST.writer.add_scalar("g_loss" , self.running_g_loss , step)
         # CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
 
-        image_path = display_pianoRoll(history_samples[step],step)
+        image_path = display_pianoRoll(temp,step,self.genre_val,GAN.training_output_path_root)
         wandb.log({f"sample_piano_roll": wandb.Image(image_path)},step=step)
         
 
     def smooth_loss(self, d_loss , g_loss):
         self.running_d_loss = 0.05 * d_loss + 0.95 * self.running_d_loss
         self.running_g_loss = 0.05 * g_loss + 0.95 * self.running_g_loss
+    def save_weights(self,step):
+        CONST.torch.save(self.generator.state_dict(), os.path.join(GAN.training_output_path_root,f'generator_{step}.pth'))
+        CONST.torch.save(self.discriminator.state_dict(), os.path.join(GAN.training_output_path_root,f'discriminator_{step}.pth'))
+    def load_weights(self,G_path,D_path):
+        self.generator.load_state_dict(CONST.torch.load(G_path))
+        self.discriminator.load_state_dict(CONST.torch.load(D_path))
+
+    
