@@ -16,9 +16,9 @@ class CONST:
     outputs_url = os.path.join('data','PianoRoll','results','genre')
 
     BATCH_SIZE= 64*4
-    sample_interval = 100  #! in what step interval during training we should make an example output.
+    sample_interval = 5  #! in what step interval during training we should make an example output.
     # n_steps = 20000
-    n_steps = 20000
+    n_steps = 1000
     AVAIL_GPUS = min(1, torch.cuda.device_count())
     print("[+] AVAIL_GPUS: ", torch.cuda.device_count())
     # NUM_WORKERS=int(os.cpu_count() / 2) #! number of threats allowed
