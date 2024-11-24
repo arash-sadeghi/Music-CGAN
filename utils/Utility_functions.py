@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import matplotlib.pyplot as plt
 import pypianoroll
-from pypianoroll import Multitrack, BinaryTrack
+from pypianoroll import Multitrack, BinaryTrack, StandardTrack
 from tqdm import tqdm
 import random
 
@@ -128,14 +128,16 @@ def pianoroll2numpy(id_list,genres):
     # Iterate over all the songs in the ID list
     for counter , msd_id in enumerate(id_list):
         # Load the multitrack as a pypianoroll.Multitrack instance
-        song_dir = CONST.dataset_path + msd_id_to_dirs(msd_id)
+        song_dir = os.path.join(CONST.dataset_path, msd_id_to_dirs(msd_id))
         multitrack = pypianoroll.load(os.path.join(song_dir , os.listdir(song_dir)[0]))
-        # Binarize the pianorolls
-        multitrack.binarize()
+        #! main change
+        #! Binarize the pianorolls
+        #! multitrack.binarize()
         # Downsample the pianorolls (shape: n_timesteps x n_pitches) #! changes the data
         multitrack.set_resolution(CONST.beat_resolution) 
-        # Stack the pianoroll (shape: n_tracks x n_timesteps x n_pitches)
-        pianoroll = (multitrack.stack() > 0)
+        #! Stack the pianoroll (shape: n_tracks x n_timesteps x n_pitches)
+        #! pianoroll = (multitrack.stack() > 0)
+        pianoroll = multitrack.stack()
         # Get the target pitch range only
         pianoroll = pianoroll[:, :, CONST.lowest_pitch:CONST.lowest_pitch + CONST.n_pitches]
         # Calculate the total measures
@@ -174,12 +176,14 @@ def display_pianoRoll(samples,step='',genre = "",output_path=""):
     tracks = []
 
     for idx, (program, is_drum, track_name) in enumerate(zip([0,33], [True,False], ['Drum','Bass'])):
-        # pianoroll = np.pad(np.concatenate(data[:4], 1)[idx], ((0, 0), (lowest_pitch, 128 - lowest_pitch - n_pitches)))
-        pianoroll = np.pad(samples[idx] > 0.5,((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
-        tracks.append(BinaryTrack(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
+        # pianoroll = np.pad(samples[idx] > 0.5,((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
+        pianoroll = np.pad(samples[idx],((0, 0), (CONST.lowest_pitch, 128 - CONST.lowest_pitch - CONST.n_pitches)))
+        #! no binary
+        tracks.append(StandardTrack(name=track_name,program=program,is_drum=is_drum,pianoroll=pianoroll))
 
     m = Multitrack(tracks=tracks,tempo=CONST.tempo_array,resolution=CONST.beat_resolution)
     m.write(os.path.join(output_path,str(step)+'.midi'))
+    print("[+] validation sample written to ",os.path.join(output_path,str(step)+'.midi'))
     #* record genre
     with open(os.path.join(output_path,str(step)+'genre.txt'),'w') as f:
         f.write(str(genre))

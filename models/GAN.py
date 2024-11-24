@@ -43,7 +43,16 @@ class GAN:
         ## train for real images 
         self.d_optimizer.zero_grad()
         ### Get discriminator outputs for the real samples
-        drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
+
+        #! normalization for non-binary
+        real_samples_normalized = [[],[]]
+        if CONST.torch.max(real_samples[0])> 1 or CONST.torch.max(real_samples[1])> 1:
+            real_samples_normalized[0] = real_samples[0]/127
+            real_samples_normalized[1] = real_samples[1]/127
+            assert CONST.torch.all(real_samples_normalized[0]>=0) and CONST.torch.all(real_samples_normalized[0]<=1) 
+            assert CONST.torch.all(real_samples_normalized[1]>=0) and CONST.torch.all(real_samples_normalized[1]<=1) 
+
+        drum_and_bass = CONST.torch.cat((real_samples_normalized[0].unsqueeze(1) , real_samples_normalized[1].unsqueeze(1)),axis=1)
         genre = real_samples[2]
         prediction_real = self.discriminator(drum_and_bass, genre)
         ### Compute the loss function
@@ -163,11 +172,13 @@ class GAN:
         self.bass_val = drum_and_bass[:CONST.n_samples,1,:,:].unsqueeze(1)
         self.drum_gt_val = drum_and_bass[:CONST.n_samples,0,:,:].unsqueeze(1)
 
+        #! for normalization check
+        assert CONST.torch.any(drum_and_bass>1) == True
+
         if self.device.type == 'cuda':
             self.genre_val= self.genre_val.cuda()
             self.bass_val = self.bass_val.cuda()
             self.drum_gt_val = self.drum_gt_val.cuda()
-
 
     def generator_generate_sample_output(self,real_samples,step):
         # Create an empty dictionary to sotre history samples
@@ -177,6 +188,9 @@ class GAN:
         self.generator.eval()
 
         samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
+        
+        samples = (samples - samples.min()) / (samples.max() - samples.min()) #! re-normalization of G. some values of samples can be more than 1. 
+        samples = samples*127 #! de-normalization
 
         #* reshaping data inorder to be saved as image
         if step == 0: #* sample zero is ground truth
@@ -196,15 +210,16 @@ class GAN:
         # CONST.writer.add_scalar("d_loss" , -self.running_d_loss , step)
 
         image_path = display_pianoRoll(temp,step,self.genre_val,GAN.training_output_path_root)
-        wandb.log({f"sample_piano_roll": wandb.Image(image_path)},step=step)
-        
+        wandb.log({f"sample_piano_roll": wandb.Image(image_path)},step=step)        
 
     def smooth_loss(self, d_loss , g_loss):
         self.running_d_loss = 0.05 * d_loss + 0.95 * self.running_d_loss
         self.running_g_loss = 0.05 * g_loss + 0.95 * self.running_g_loss
+
     def save_weights(self,step):
         CONST.torch.save(self.generator.state_dict(), os.path.join(GAN.training_output_path_root,f'generator_{step}.pth'))
         CONST.torch.save(self.discriminator.state_dict(), os.path.join(GAN.training_output_path_root,f'discriminator_{step}.pth'))
+
     def load_weights(self,G_path,D_path):
         self.generator.load_state_dict(CONST.torch.load(G_path))
         self.discriminator.load_state_dict(CONST.torch.load(D_path))

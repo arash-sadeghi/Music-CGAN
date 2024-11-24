@@ -10,3 +10,4 @@ wandb/
 .vscode/
 *.npy
 *.png
+*.midi
