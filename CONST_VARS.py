@@ -64,3 +64,4 @@ class CONST:
         'Jazz'  : 11 ,
         'Latin' : 12 ,
     }
+    binary = True

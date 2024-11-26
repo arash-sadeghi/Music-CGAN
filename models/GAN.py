@@ -46,14 +46,16 @@ class GAN:
         ### Get discriminator outputs for the real samples
 
         #! normalization for non-binary
-        real_samples_normalized = [[],[]]
-        if CONST.torch.max(real_samples[0])> 1 or CONST.torch.max(real_samples[1])> 1:
-            real_samples_normalized[0] = real_samples[0]/127
-            real_samples_normalized[1] = real_samples[1]/127
-            assert CONST.torch.all(real_samples_normalized[0]>=0) and CONST.torch.all(real_samples_normalized[0]<=1) 
-            assert CONST.torch.all(real_samples_normalized[1]>=0) and CONST.torch.all(real_samples_normalized[1]<=1) 
-
-        drum_and_bass = CONST.torch.cat((real_samples_normalized[0].unsqueeze(1) , real_samples_normalized[1].unsqueeze(1)),axis=1)
+        if not CONST.binary:
+            real_samples_normalized = [[],[]]
+            if CONST.torch.max(real_samples[0])> 1 or CONST.torch.max(real_samples[1])> 1:
+                real_samples_normalized[0] = real_samples[0]/127
+                real_samples_normalized[1] = real_samples[1]/127
+                assert CONST.torch.all(real_samples_normalized[0]>=0) and CONST.torch.all(real_samples_normalized[0]<=1) 
+                assert CONST.torch.all(real_samples_normalized[1]>=0) and CONST.torch.all(real_samples_normalized[1]<=1) 
+            drum_and_bass = CONST.torch.cat((real_samples_normalized[0].unsqueeze(1) , real_samples_normalized[1].unsqueeze(1)),axis=1)
+        else:
+            drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
         genre = real_samples[2]
         prediction_real = self.discriminator(drum_and_bass, genre)
         ### Compute the loss function
@@ -173,8 +175,8 @@ class GAN:
         self.bass_val = drum_and_bass[:CONST.n_samples,1,:,:].unsqueeze(1)
         self.drum_gt_val = drum_and_bass[:CONST.n_samples,0,:,:].unsqueeze(1)
 
-        #! for normalization check
-        assert CONST.torch.any(drum_and_bass>1) == True
+        if not CONST.binary:
+            assert CONST.torch.any(drum_and_bass>1) == True
 
         if self.device.type == 'cuda':
             self.genre_val= self.genre_val.cuda()
@@ -190,13 +192,16 @@ class GAN:
 
         samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
         
-        samples = (samples - samples.min()) / (samples.max() - samples.min()) #! re-normalization of G. some values of samples can be more than 1. 
-        samples = samples*127 #! de-normalization
-        draw_hist(samples , os.path.join(GAN.training_output_path_root,f'dist_{step}.png') )
+        if not CONST.binary:
+            samples = (samples - samples.min()) / (samples.max() - samples.min()) #! re-normalization of G. some values of samples can be more than 1. 
+            samples = samples*127 #! de-normalization
+            draw_hist(samples , os.path.join(GAN.training_output_path_root,f'dist_{step}.png') )
+    
         #* reshaping data inorder to be saved as image
         if step == 0: #* sample zero is ground truth
             temp = CONST.torch.cat((self.drum_gt_val.cpu().detach(),self.bass_val.cpu().detach()  ),axis = 1).numpy()
-            draw_hist(self.drum_gt_val.cpu().detach() , os.path.join(GAN.training_output_path_root,f'dist__gt.png') )
+            if not CONST.binary:
+                draw_hist(self.drum_gt_val.cpu().detach() , os.path.join(GAN.training_output_path_root,f'dist__gt.png') )
 
         else: 
             temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val.cpu().detach() ),axis = 1).numpy()
