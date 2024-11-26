@@ -10,7 +10,8 @@ class GeneraterBlock(nn.Module):
     def forward(self, x):
         x = self.transconv(x)
         x = self.batchnorm(x) 
-        return F.relu(x)
+        # return F.relu(x)
+        return F.sigmoid(x)
 
 class ConditionerBlock(nn.Module):
     def __init__(self, in_dim, out_dim, kernel, stride):

@@ -4,13 +4,14 @@ from CONST_VARS import CONST
 from tqdm import tqdm
 from IPython.display import clear_output
 from utils.Utility_functions import compute_gradient_penalty, display_pianoRoll, print_ram_usage, get_time_name,create_path_if_not_exists
+from utils.Draw_hist import draw_hist
 import wandb
 import os
 
 class GAN:
     REAL_LABEL = 1
     FAKE_LABEL = 0
-    COMMENT = 'high_res_measure'
+    COMMENT = 'high_res_measure_sigmoid'
     training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root',COMMENT+get_time_name())
 
     def __init__(self,train_dataloader) -> None:
@@ -191,10 +192,12 @@ class GAN:
         
         samples = (samples - samples.min()) / (samples.max() - samples.min()) #! re-normalization of G. some values of samples can be more than 1. 
         samples = samples*127 #! de-normalization
-
+        draw_hist(samples , os.path.join(GAN.training_output_path_root,f'dist_{step}.png') )
         #* reshaping data inorder to be saved as image
         if step == 0: #* sample zero is ground truth
             temp = CONST.torch.cat((self.drum_gt_val.cpu().detach(),self.bass_val.cpu().detach()  ),axis = 1).numpy()
+            draw_hist(self.drum_gt_val.cpu().detach() , os.path.join(GAN.training_output_path_root,f'dist__gt.png') )
+
         else: 
             temp = CONST.torch.cat((samples.cpu().detach(),self.bass_val.cpu().detach() ),axis = 1).numpy()
 
