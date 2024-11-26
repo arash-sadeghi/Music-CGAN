@@ -4,11 +4,10 @@ from pathlib import Path
 
 class CONST:
     print("[+] CONST executed by", __name__)
-
     import torch
     random_seed = 42 #TODO problem here is CONST file will be executed at the beggining of each iteration so torch will be randomized multiple times with the same seed
     torch.manual_seed(random_seed)
-
+    binary = True
     dataset_root = os.path.join('data','PianoRoll','dataset')
     example_dataset_path = os.path.join('data','PianoRoll','results','genre')
     dataset_path = os.path.join(dataset_root,'lpd_5','lpd_5_cleansed')
@@ -64,4 +63,3 @@ class CONST:
         'Jazz'  : 11 ,
         'Latin' : 12 ,
     }
-    binary = True

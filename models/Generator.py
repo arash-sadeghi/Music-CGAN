@@ -43,50 +43,36 @@ class Generator(nn.Module):
         self.conv5 = ConditionerBlock(256 , CONST.latent_dim , (4, 1, 1), (4, 1, 1))
 
         self.transconv0 = GeneraterBlock(Generator.latent_depth_chanel, 256, (4, 1, 1), (4, 1, 1))
-        self.transconv1 = GeneraterBlock(256, 128, (1, 4, 1), (1, 4, 1))
-        self.transconv2 = GeneraterBlock(128, 64, (1, 1, 4), (1, 1, 4))
-        self.transconv3 = GeneraterBlock(64, 32, (1, 1, 3), (1, 1, 1))
-        self.transconv4 = GeneraterBlock(32, 16, (1, 4, 1), (1, 4, 1))
-        self.transconv5 = GeneraterBlock(16, 1, (1, 1, 12), (1, 1, 12))
+        self.transconv1 = GeneraterBlock(256*2, 128, (1, 4, 1), (1, 4, 1))
+        self.transconv2 = GeneraterBlock(128*2, 64, (1, 1, 4), (1, 1, 4))
+        self.transconv3 = GeneraterBlock(64*2, 32, (1, 1, 3), (1, 1, 1))
+        self.transconv4 = GeneraterBlock(32*2, 16, (1, 4, 1), (1, 4, 1))
+        self.transconv5 = GeneraterBlock(16*2, 1, (1, 1, 12), (1, 1, 12))
 
 
     def forward(self, x , condition , genre): #! torch.Size([1, 128])
 
         condition = condition.view(-1,1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches) 
         # x = x.view(CONST.BATCH_SIZE ,1, CONST.n_measures , CONST.measure_resolution, CONST.n_pitches) 
-        condition = self.conv0(condition) 
-        condition = self.conv1(condition)
-        condition = self.conv2(condition)
-        condition = self.conv3(condition) 
-        condition = self.conv4(condition)
-        condition = self.conv5(condition)
-        condition = condition.view(-1, CONST.latent_dim)        
+        condition0 = self.conv0(condition) 
+        condition1 = self.conv1(condition0)
+        condition2 = self.conv2(condition1)
+        condition3 = self.conv3(condition2) 
+        condition4 = self.conv4(condition3)
+        condition5 = self.conv5(condition4)
+        condition5 = condition5.view(-1, CONST.latent_dim)        
         
         genre = self.embedder(genre)
-        x = CONST.torch.cat((x, condition,genre),axis=1)
 
-        # layer = 0
-        x = x.view(-1, Generator.latent_depth_chanel, 1, 1, 1) #! torch.Size([1, 128, 1, 1])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv0(x) #! torch.Size([1, 128, 4, 4]) #! torch.Size([1, 128, 3, 3])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv1(x) #! torch.Size([1, 64, 10, 10]) #! torch.Size([1, 64, 7, 7])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv2(x) #! torch.Size([1, 32, 22, 22]) #! torch.Size([1, 32, 15, 15])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv3(x) #! torch.Size([1, 16, 46, 46]) #! torch.Size([1, 16, 31, 31])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv4(x) #! torch.Size([1, 1, 94, 94]) #! torch.Size([1, 1, 63, 63])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-        x = self.transconv5(x) #! torch.Size([1, 1, 94, 94]) #! torch.Size([1, 1, 63, 63])
-        # print(f"layer {layer} size {x.shape}");layer+=1        
-
-
-        x = x.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
-        return x
+        x = CONST.torch.cat((x, condition5,genre),axis=1)
+        
+        x = x.view(-1, Generator.latent_depth_chanel, 1, 1, 1) 
+        
+        x0 = self.transconv0(x) 
+        x1 = self.transconv1(CONST.torch.cat((x0,condition4),axis = 1)) 
+        x2 = self.transconv2(CONST.torch.cat((x1,condition3),axis = 1)) 
+        x3 = self.transconv3(CONST.torch.cat((x2,condition2),axis = 1)) 
+        x4 = self.transconv4(CONST.torch.cat((x3,condition1),axis = 1)) 
+        x5 = self.transconv5(CONST.torch.cat((x4,condition0),axis = 1)) 
+        x5 = x5.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
+        return x5
