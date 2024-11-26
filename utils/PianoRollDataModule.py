@@ -8,19 +8,12 @@ import numpy as np
 import os
 import torch
 class PianoRollDataModule(pl.LightningDataModule):
-    DATA_SAVE_URL = os.path.join(CONST.dataset_root,"data_genred.npy")
     GENRE_SAVE_URL = os.path.join(CONST.dataset_root,"genre.npy")
-    def __init__(
-        self,
-        data_dir: str = CONST.dataset_root,
-        batch_size: int = CONST.BATCH_SIZE,
-        # num_workers: int = CONST.NUM_WORKERS,
-        ):
+    def __init__(self, data_dir: str = CONST.dataset_root, batch_size: int = CONST.BATCH_SIZE): # num_workers: int = CONST.NUM_WORKERS,
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
         # self.num_workers = num_workers
-
         self.transform = transforms.Compose( #? what is this?
             [
                 transforms.ToTensor(),
@@ -31,13 +24,15 @@ class PianoRollDataModule(pl.LightningDataModule):
         self.dims = (1, 28, 28)
         self.num_classes = 10
 
+        self.DATA_SAVE_URL = os.path.join(CONST.dataset_root,"data_genred_binary.npy") if CONST.binary else os.path.join(CONST.dataset_root,"data_genred_non_binary.npy")
+
         self.prepare_data()
 
     def prepare_data(self): #! 1 automatically called upon calling trainer.fit(model , dm) in main. this function is for downloading dataset        # download
         
         id_list ,  genres = get_pianoroll_id_list() #TODO bring implementation
         
-        if os.path.exists(PianoRollDataModule.DATA_SAVE_URL):
+        if os.path.exists(self.DATA_SAVE_URL):
             print("[+] loading data from existing npy file")
             self.load_data_np()
         else:
@@ -83,11 +78,11 @@ class PianoRollDataModule(pl.LightningDataModule):
         return self.rock_dataloader
 
     def save_data_np(self):
-        np.save(PianoRollDataModule.DATA_SAVE_URL , self.data_np)
+        np.save(self.DATA_SAVE_URL , self.data_np)
         np.save(PianoRollDataModule.GENRE_SAVE_URL , self.genre_per_sample)
 
     def load_data_np(self):
-        self.data_np = np.load(PianoRollDataModule.DATA_SAVE_URL)
+        self.data_np = np.load(self.DATA_SAVE_URL)
         self.genre_per_sample = np.load(PianoRollDataModule.GENRE_SAVE_URL)
     
     #TODO write validator data part

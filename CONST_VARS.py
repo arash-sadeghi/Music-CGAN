@@ -17,7 +17,7 @@ class CONST:
 
     BATCH_SIZE= 64*4
     sample_interval = 10 #! 5  #! in what step interval during training we should make an example output.
-    n_steps = 20000
+    n_steps = 500 # 20000
     # n_steps = 1000
     AVAIL_GPUS = min(1, torch.cuda.device_count())
     print("[+] AVAIL_GPUS: ", torch.cuda.device_count())

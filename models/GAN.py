@@ -11,7 +11,7 @@ import os
 class GAN:
     REAL_LABEL = 1
     FAKE_LABEL = 0
-    COMMENT = 'high_res_measure_sigmoid'
+    COMMENT = 'high_res_measure_sigmoid_binary'
     training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root',COMMENT+get_time_name())
 
     def __init__(self,train_dataloader) -> None:
