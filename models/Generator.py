@@ -10,8 +10,8 @@ class GeneraterBlock(nn.Module):
     def forward(self, x):
         x = self.transconv(x)
         x = self.batchnorm(x) 
-        # return F.relu(x)
-        return F.sigmoid(x)
+        # return F.leaky_relu(x) , x
+        return F.relu(x) , x
 
 class ConditionerBlock(nn.Module):
     def __init__(self, in_dim, out_dim, kernel, stride):
@@ -64,15 +64,18 @@ class Generator(nn.Module):
         
         genre = self.embedder(genre)
 
-        x = CONST.torch.cat((x, condition5,genre),axis=1)
-        
+        x = CONST.torch.cat((x, condition5,genre),axis=1)        
         x = x.view(-1, Generator.latent_depth_chanel, 1, 1, 1) 
         
-        x0 = self.transconv0(x) 
-        x1 = self.transconv1(CONST.torch.cat((x0,condition4),axis = 1)) 
-        x2 = self.transconv2(CONST.torch.cat((x1,condition3),axis = 1)) 
-        x3 = self.transconv3(CONST.torch.cat((x2,condition2),axis = 1)) 
-        x4 = self.transconv4(CONST.torch.cat((x3,condition1),axis = 1)) 
-        x5 = self.transconv5(CONST.torch.cat((x4,condition0),axis = 1)) 
-        x5 = x5.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
-        return x5
+        x0 , _ = self.transconv0(x) 
+        x1 , _ = self.transconv1(CONST.torch.cat((x0,condition4),axis = 1)) 
+        x2 , _ = self.transconv2(CONST.torch.cat((x1,condition3),axis = 1)) 
+        x3 , _ = self.transconv3(CONST.torch.cat((x2,condition2),axis = 1)) 
+        x4 , _ = self.transconv4(CONST.torch.cat((x3,condition1),axis = 1)) 
+        _ , x5_nonactive = self.transconv5(CONST.torch.cat((x4,condition0),axis = 1)) 
+        x5_sigmoid = F.sigmoid(x5_nonactive)
+        
+        x5_sigmoid = x5_sigmoid.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
+        x5_nonactive = x5_nonactive.view(-1, 1, CONST.n_measures * CONST.measure_resolution, CONST.n_pitches)
+        
+        return x5_nonactive , x5_sigmoid

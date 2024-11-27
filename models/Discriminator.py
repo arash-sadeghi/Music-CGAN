@@ -27,13 +27,13 @@ class LayerNorm(nn.Module):
 class DiscriminatorBlock(nn.Module):
     def __init__(self, in_dim, out_dim, kernel, stride):
         super().__init__()
-        self.transconv = nn.Conv3d(in_dim, out_dim, kernel, stride)
+        self.conv = nn.Conv3d(in_dim, out_dim, kernel, stride)
         self.layernorm = LayerNorm(out_dim)
 
     def forward(self, x):
-        x = self.transconv(x)
+        x = self.conv(x)
         x = self.layernorm(x)
-        return nn.functional.leaky_relu(x)
+        return nn.functional.leaky_relu(x) , x
     
 class Discriminator(nn.Module):
     def __init__(self):
@@ -56,14 +56,15 @@ class Discriminator(nn.Module):
         genre = genre.unsqueeze(1).repeat(1,64,1).unsqueeze(1)
         x = CONST.torch.cat((x,genre),axis = 1)
         x = x.view(-1, 3,  CONST.n_measures , CONST.measure_resolution, CONST.n_pitches)
-        x = self.conv0(x)
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
-        x = self.conv6(x)
+        x , _ = self.conv0(x)
+        fm = x
+        x , _ = self.conv1(x)
+        x , _ = self.conv2(x)
+        x , _ = self.conv3(x)
+        x , _ = self.conv4(x)
+        x , _ = self.conv5(x)
+        x , _ = self.conv6(x)
         x = x.view(-1, 256)
-        x = self.dense(x)
-        # x = self.sigmoid(x)
-        return x
+        x_nonactivated = self.dense(x)
+        x_sigmoid = F.sigmoid(x_nonactivated)
+        return x , x_sigmoid , fm

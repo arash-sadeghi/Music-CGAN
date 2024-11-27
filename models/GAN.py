@@ -26,7 +26,9 @@ class GAN:
         wandb.watch(self.discriminator)
         create_path_if_not_exists(GAN.training_output_path_root)
 
-        self.criterion = CONST.torch.nn.BCELoss()
+        self.d_loss_fn_real = CONST.torch.nn.BCEWithLogitsLoss()
+        self.d_loss_fn_fake = CONST.torch.nn.BCEWithLogitsLoss()
+        self.g_loss_fn = CONST.torch.nn.BCEWithLogitsLoss()
         ngpu = 1
         self.device = CONST.torch.device("cuda:0" if (CONST.torch.cuda.is_available() and ngpu > 0) else "cpu")
         # self.device = CONST.torch.device("cpu")
@@ -43,9 +45,7 @@ class GAN:
         # === Train the discriminator ===
         ## train for real images 
         self.d_optimizer.zero_grad()
-        ### Get discriminator outputs for the real samples
 
-        #! normalization for non-binary
         if not CONST.binary:
             real_samples_normalized = [[],[]]
             if CONST.torch.max(real_samples[0])> 1 or CONST.torch.max(real_samples[1])> 1:
@@ -56,61 +56,40 @@ class GAN:
             drum_and_bass = CONST.torch.cat((real_samples_normalized[0].unsqueeze(1) , real_samples_normalized[1].unsqueeze(1)),axis=1)
         else:
             drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
-        genre = real_samples[2]
-        prediction_real = self.discriminator(drum_and_bass, genre)
-        ### Compute the loss function
-        d_loss_real = -CONST.torch.mean(prediction_real)
 
-        # label = CONST.torch.full((CONST.BATCH_SIZE,), GAN.REAL_LABEL, dtype=CONST.torch.float, device=self.device)
-        # d_loss_real = self.criterion(prediction_real.squeeze(), label)
-        # d_loss_real_mean = d_loss_real.mean().item()
-        ### Backpropagate the gradients
+        genre = real_samples[2]
+        prediction_real_logit , prediction_real , fm_real = self.discriminator(drum_and_bass, genre)
+
+        d_loss_real = self.d_loss_fn_real(prediction_real_logit , 0.9*CONST.torch.ones_like(prediction_real_logit))
         d_loss_real.backward()
         
         ## train for fake images
-        ### Generate fake samples with the generator
-        fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
-        ### Get discriminator outputs for the fake samples
+        _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
         fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
-        prediction_fake_d = self.discriminator(fake_samples_conditioned.detach() , genre)
-        ### Compute the loss function
-        d_loss_fake = CONST.torch.mean(prediction_fake_d) #* discriminator will try to make this zero, thus learning to give zero label to fake data
-        
-        # label.fill_(GAN.FAKE_LABEL)
-        # d_loss_fake = self.criterion(prediction_fake_d.squeeze(), label)
-        # d_loss_fake_mean = d_loss_fake.mean().item()
-        ### Backpropagate the gradients
+        prediction_fake_d_logit , prediction_fake_d , fm_fake = self.discriminator(fake_samples_conditioned , genre)
+        d_loss_fake = self.d_loss_fn_fake(prediction_fake_d_logit , CONST.torch.zeros_like(prediction_fake_d_logit))
         d_loss_fake.backward()
-
-        # Compute gradient penalty
-        #! I Don't Know what does this do
-        gradient_penalty = 10.0 * compute_gradient_penalty(
-            self.discriminator, drum_and_bass.data, fake_samples_conditioned.data, genre, self.device)
-        # Backpropagate the gradients
-        gradient_penalty.backward()
+        
+        # # Compute gradient penalty
+        # #! I Don't Know what does this do
+        # gradient_penalty = 10.0 * compute_gradient_penalty(
+        #     self.discriminator, drum_and_bass.data, fake_samples_conditioned.data, genre, self.device)
+        # # Backpropagate the gradients
+        # gradient_penalty.backward()
 
         # Update the weights
         self.d_optimizer.step()
 
         # === Train the generator ===
-        # Reset cached gradients to zero
         self.g_optimizer.zero_grad()
-        # Get discriminator outputs for the fake samples
-        prediction_fake_g = self.discriminator(fake_samples_conditioned,genre)
-        # Compute the loss function
-        g_loss_fake = -CONST.torch.mean(prediction_fake_g) #* will try to generate more negative values, thus bigger predcition_fake_g values, thus discriminator is fooled
-        
-        # label.fill_(GAN.REAL_LABEL)
-        # g_loss_fake = self.criterion(prediction_fake_g.squeeze(), label)
-        # g_loss_fake_mean = g_loss_fake.mean().item()
-
-        # Backpropagate the gradients
-        g_loss_fake.backward()
-        # Update the weights
+        _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
+        fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
+        prediction_fake_d_logit , prediction_fake_d , fm_fake = self.discriminator(fake_samples_conditioned , genre)
+        g_loss = self.g_loss_fn(prediction_fake_d_logit , CONST.torch.ones_like(prediction_fake_d_logit))
+        g_loss.backward()
         self.g_optimizer.step()
 
-        # return d_loss_real_mean +d_loss_fake_mean, g_loss_fake_mean
-        return d_loss_real.detach() + d_loss_fake.detach(), g_loss_fake.detach()
+        return d_loss_real.detach() + d_loss_fake.detach(), g_loss.detach()
 
     def train_prep(self):
         print("Number of parameters in G: {}".format(
