@@ -58,7 +58,7 @@ class GAN:
             drum_and_bass = CONST.torch.cat((real_samples[0].unsqueeze(1) , real_samples[1].unsqueeze(1)),axis=1)
 
         genre = real_samples[2]
-        prediction_real_logit , prediction_real , fm_real = self.discriminator(drum_and_bass, genre)
+        prediction_real_logit , prediction_real , _ = self.discriminator(drum_and_bass, genre)
 
         d_loss_real = self.d_loss_fn_real(prediction_real_logit , 0.9*CONST.torch.ones_like(prediction_real_logit))
         d_loss_real.backward()
@@ -66,7 +66,7 @@ class GAN:
         ## train for fake images
         _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
         fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
-        prediction_fake_d_logit , prediction_fake_d , fm_fake = self.discriminator(fake_samples_conditioned , genre)
+        prediction_fake_d_logit , _ , _ = self.discriminator(fake_samples_conditioned , genre)
         d_loss_fake = self.d_loss_fn_fake(prediction_fake_d_logit , CONST.torch.zeros_like(prediction_fake_d_logit))
         d_loss_fake.backward()
         
@@ -77,19 +77,38 @@ class GAN:
         # # Backpropagate the gradients
         # gradient_penalty.backward()
 
-        # Update the weights
         self.d_optimizer.step()
 
         # === Train the generator ===
         self.g_optimizer.zero_grad()
         _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
         fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
-        prediction_fake_d_logit , prediction_fake_d , fm_fake = self.discriminator(fake_samples_conditioned , genre)
+        prediction_fake_d_logit , _ , _ = self.discriminator(fake_samples_conditioned , genre)
         g_loss = self.g_loss_fn(prediction_fake_d_logit , CONST.torch.ones_like(prediction_fake_d_logit))
         g_loss.backward()
+
+        # Feature Matching Loss
+        _ , _ , fm_real = self.discriminator(drum_and_bass, genre)
+        _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
+        fake_samples_conditioned = CONST.torch.cat((fake_samples, drum_and_bass[:,1,:,:].unsqueeze(1)),axis=1)
+        _ , _ , fm_fake = self.discriminator(fake_samples_conditioned , genre)
+
+        features_from_g = CONST.torch.mean(fm_fake, dim=0)  # Mean across batch dimension
+        features_from_i = CONST.torch.mean(fm_real, dim=0)   # Mean across batch dimension
+        fm_g_loss1 = 0.1 * CONST.torch.nn.functional.mse_loss(features_from_g, features_from_i)  # Scaled L2 loss
+        fm_g_loss1.backward()
+
+        # Mean Matching Loss
+        _ , fake_samples = self.generator(latent,drum_and_bass[:,1,:,:] , genre) 
+        mean_image_from_g = CONST.torch.mean(fake_samples[:,0,:,:], dim=0)  # Mean across batch dimension
+        mean_image_from_i = CONST.torch.mean(drum_and_bass[:,0,:,:] , dim=0)  # Mean across batch dimension
+        fm_g_loss2 = 0.01 * CONST.torch.nn.functional.mse_loss(mean_image_from_g, mean_image_from_i)  # Scaled L2 loss
+        fm_g_loss2.backward()
+
+
         self.g_optimizer.step()
 
-        return d_loss_real.detach() + d_loss_fake.detach(), g_loss.detach()
+        return d_loss_real.detach() + d_loss_fake.detach(), g_loss.detach() + fm_g_loss1.detach() + fm_g_loss2.detach()
 
     def train_prep(self):
         print("Number of parameters in G: {}".format(
