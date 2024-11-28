@@ -11,7 +11,7 @@ import os
 class GAN:
     REAL_LABEL = 1
     FAKE_LABEL = 0
-    COMMENT = 'high_res_measure_sigmoid_binary_deep_condition'
+    COMMENT = 'high_res_measure_sigmoid_binary_deep_condition_midinet_BCE'
     training_output_path_root = os.path.join('data','PianoRoll','results','genre','training_output_path_root',COMMENT+get_time_name())
 
     def __init__(self,train_dataloader) -> None:
@@ -169,7 +169,7 @@ class GAN:
         # Get generated samples
         self.generator.eval()
 
-        samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
+        _ , samples = self.generator(self.sample_latent_eval, self.bass_val , self.genre_val) 
         
         if not CONST.binary:
             samples = (samples - samples.min()) / (samples.max() - samples.min()) #! re-normalization of G. some values of samples can be more than 1. 
